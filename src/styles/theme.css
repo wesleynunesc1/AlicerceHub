@@ -957,6 +957,38 @@ p, .text-body {
   justify-content: center;
 }
 
+.clickable-metric {
+  position: relative;
+  background: var(--cream-card);
+  transition: all var(--transition-fast);
+}
+
+.clickable-metric:hover {
+  background: rgba(18, 53, 43, 0.02) !important;
+}
+
+.clickable-metric:hover .clickable-metric-arrow {
+  color: var(--sand-gold-dark) !important;
+  transform: translate(2px, -2px);
+}
+
+.clickable-metric-arrow {
+  transition: all var(--transition-fast);
+}
+
+/* Skeleton Loading Shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #F0ECE4 25%, #FAF8F5 50%, #F0ECE4 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite ease-in-out;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* Badges - Subtle, elegant, high contrast */
 .badge {
   display: inline-flex;
