@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
 import {
-  Sparkles,
   Copy,
   Check,
   Download,
-  Layers,
-  Type,
-  Compass,
-  BookOpen,
-  Feather,
-  ShieldAlert,
+  CheckCircle2,
   ArrowRight
 } from 'lucide-react';
 import { useToast } from '../../components/Common/Toast';
@@ -31,13 +25,13 @@ const BRAND_COLORS: ColorSwatch[] = [
   },
   {
     name: 'Verde Alicerce Primário',
-    role: 'Superfícies, ênfases nobres, estados ativos',
+    role: 'Superfícies ativas, ênfases nobres, estados selecionados',
     hex: '#12352B',
     rgb: '18, 53, 43'
   },
   {
     name: 'Ouro Suave / Sand Gold',
-    role: 'Indicadores premium, destaques e refinamentos',
+    role: 'Indicadores premium, destaques e refinamentos visuais',
     hex: '#C5A880',
     rgb: '197, 168, 128',
     isDarkText: true
@@ -66,8 +60,8 @@ const BRAND_COLORS: ColorSwatch[] = [
   {
     name: 'Grafite Editorial',
     role: 'Textos de leitura, contraste e legibilidade',
-    hex: '#18201D',
-    rgb: '24, 32, 29'
+    hex: '#121A16',
+    rgb: '18, 26, 22'
   }
 ];
 
@@ -83,38 +77,38 @@ export const BrandCenterPage: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '40px' }}>
+    <div style={{ maxWidth: '1220px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '48px' }}>
       {/* Editorial Header */}
       <div
         style={{
           borderBottom: '1px solid var(--cream-border)',
-          paddingBottom: '28px',
+          paddingBottom: '32px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px'
+          gap: '10px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span
             style={{
-              fontSize: '0.74rem',
+              fontSize: '0.78rem',
               fontWeight: 700,
               textTransform: 'uppercase',
               letterSpacing: '0.14em',
               color: 'var(--sand-gold-dark)',
               background: 'var(--sand-gold-tint)',
-              padding: '3px 12px',
+              padding: '4px 14px',
               borderRadius: 'var(--radius-full)'
             }}
           >
-            Brand Guidelines & Ativos
+            Manual de Identidade & Brandbook Digital
           </span>
         </div>
 
         <h1
           className="font-serif"
           style={{
-            fontSize: '2.8rem',
+            fontSize: '3rem',
             fontWeight: 700,
             color: 'var(--green-deep)',
             letterSpacing: '-0.02em',
@@ -124,21 +118,21 @@ export const BrandCenterPage: React.FC = () => {
           Brand Center
         </h1>
 
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', maxWidth: '680px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1.15rem', maxWidth: '720px', lineHeight: 1.6, fontWeight: 450 }}>
           A identidade da Alicerce em um só lugar. Elementos visuais, tom de voz, pilares editoriais e diretrizes oficiais da marca.
         </p>
       </div>
 
       {/* 1. SEÇÃO LOGO OFICIAL */}
-      <section>
-        <div style={{ marginBottom: '16px' }}>
-          <span style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
             01 • Marca & Símbolo
           </span>
-          <h2 className="font-serif" style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '2px' }}>
+          <h2 className="font-serif" style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>
             Logo Oficial Alicerce
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: 450 }}>
             A marca oficial da Alicerce possui ligatura proprietária que une precisão arquitetônica e sofisticação editorial.
           </p>
         </div>
@@ -146,8 +140,8 @@ export const BrandCenterPage: React.FC = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '24px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+            gap: '28px'
           }}
         >
           {/* Main Dark Card with Original Logo */}
@@ -160,7 +154,8 @@ export const BrandCenterPage: React.FC = () => {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              padding: '36px 32px'
+              padding: '40px 36px',
+              boxShadow: 'var(--shadow-md)'
             }}
           >
             <div>
@@ -169,22 +164,22 @@ export const BrandCenterPage: React.FC = () => {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '24px'
+                  marginBottom: '26px'
                 }}
               >
                 <span
                   style={{
-                    fontSize: '0.72rem',
+                    fontSize: '0.74rem',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.12em',
+                    letterSpacing: '0.14em',
                     color: 'var(--sand-gold)',
                     fontWeight: 700
                   }}
                 >
-                  Aplicação Master (Fundo Escuro)
+                  Aplicação Primária (Fundo Escuro)
                 </span>
-                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>
-                  PNG Original
+                <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>
+                  PNG Original de Alta Resolução
                 </span>
               </div>
 
@@ -194,18 +189,18 @@ export const BrandCenterPage: React.FC = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '36px 20px',
-                  background: 'rgba(255,255,255,0.02)',
+                  padding: '40px 24px',
+                  background: 'rgba(255,255,255,0.03)',
                   borderRadius: 'var(--radius-lg)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  marginBottom: '20px'
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  marginBottom: '24px'
                 }}
               >
                 <img
                   src="/Ab.png"
                   alt="Logo Oficial Alicerce"
                   style={{
-                    maxWidth: '220px',
+                    maxWidth: '240px',
                     width: '100%',
                     height: 'auto',
                     objectFit: 'contain'
@@ -213,8 +208,8 @@ export const BrandCenterPage: React.FC = () => {
                 />
               </div>
 
-              <p style={{ fontSize: '0.84rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.45 }}>
-                Versão primordial de contraste, ideal para painéis, cabeçalhos escuros, identidades institucionais e ambientes executivos.
+              <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.75)', lineHeight: 1.55 }}>
+                Versão primordial de contraste, ideal para cabeçalhos escuros, identidades institucionais e ambientes executivos.
               </p>
             </div>
 
@@ -223,13 +218,13 @@ export const BrandCenterPage: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                paddingTop: '20px',
+                paddingTop: '22px',
                 borderTop: '1px solid rgba(255,255,255,0.08)',
-                marginTop: '20px'
+                marginTop: '24px'
               }}
             >
-              <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.5)' }}>
-                Arquivo: Ab.png
+              <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+                Arquivo: <strong>Ab.png</strong>
               </span>
               <a
                 href="/Ab.png"
@@ -243,11 +238,11 @@ export const BrandCenterPage: React.FC = () => {
           </div>
 
           {/* Guidelines on Safe Area & Rules */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '32px' }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '36px' }}>
             <div>
               <span
                 style={{
-                  fontSize: '0.72rem',
+                  fontSize: '0.74rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em',
                   color: 'var(--sand-gold-dark)',
@@ -256,29 +251,29 @@ export const BrandCenterPage: React.FC = () => {
               >
                 Diretrizes de Aplicação
               </span>
-              <h3 className="font-serif" style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--green-deep)', marginTop: '4px', marginBottom: '14px' }}>
-                Integridade e Área de Respiro
+              <h3 className="font-serif" style={{ fontSize: '1.55rem', fontWeight: 650, color: 'var(--green-deep)', marginTop: '6px', marginBottom: '16px' }}>
+                Integridade Visual e Respiro
               </h3>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--sand-gold)', marginTop: '8px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <CheckCircle2 size={18} color="var(--green-primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
                   <div>
-                    <strong style={{ color: 'var(--text-primary)' }}>Área de Respiro Mínima:</strong> Manter distância de segurança equivalente à altura da letra "A" em todos os quatro cantos.
+                    <strong style={{ color: 'var(--text-primary)' }}>Área de Respiro Mínima:</strong> Manter distância de segurança proporcional à altura da letra "A" em todos os cantos.
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--sand-gold)', marginTop: '8px' }} />
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <CheckCircle2 size={18} color="var(--green-primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
                   <div>
-                    <strong style={{ color: 'var(--text-primary)' }}>Não Distorcer:</strong> A proporção de largura e altura da logo oficial nunca deve ser alterada.
+                    <strong style={{ color: 'var(--text-primary)' }}>Sem Distorções:</strong> A proporção dimensional e a curvatura da ligatura "i-c-e" nunca devem ser modificadas.
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--sand-gold)', marginTop: '8px' }} />
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <CheckCircle2 size={18} color="var(--green-primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
                   <div>
-                    <strong style={{ color: 'var(--text-primary)' }}>Contraste Rigoroso:</strong> Aplicar exclusivamente sobre o verde profundo Alicerce, fundos pretos elegantes ou off-white límpido.
+                    <strong style={{ color: 'var(--text-primary)' }}>Contraste Elegante:</strong> Aplicação recomendada sobre verde profundo Alicerce, fundos escuros refinados ou creme limpo.
                   </div>
                 </div>
               </div>
@@ -286,17 +281,17 @@ export const BrandCenterPage: React.FC = () => {
 
             <div
               style={{
-                padding: '16px',
+                padding: '18px 20px',
                 background: 'var(--cream-subtle)',
                 borderRadius: 'var(--radius-md)',
-                marginTop: '20px',
-                borderLeft: '3px solid var(--sand-gold)'
+                marginTop: '24px',
+                borderLeft: '3.5px solid var(--sand-gold)'
               }}
             >
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--green-deep)', textTransform: 'uppercase', marginBottom: '2px' }}>
+              <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>
                 Assinatura Oficial
               </div>
-              <div style={{ fontStyle: 'italic', fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
+              <div style={{ fontStyle: 'italic', fontSize: '1rem', color: 'var(--text-primary)', fontWeight: 600 }}>
                 "Alicerce — A estrutura do seu negócio."
               </div>
             </div>
@@ -305,24 +300,24 @@ export const BrandCenterPage: React.FC = () => {
       </section>
 
       {/* 2. SEÇÃO PALETA CROMÁTICA */}
-      <section>
-        <div style={{ marginBottom: '16px' }}>
-          <span style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
             02 • Cores & Contrastes
           </span>
-          <h2 className="font-serif" style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '2px' }}>
+          <h2 className="font-serif" style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>
             Paleta Visual Alicerce
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-            Clique em qualquer cor para copiar imediatamente o código HEX.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: 450 }}>
+            Clique em qualquer card ou no botão correspondente para copiar o código HEX com 1 clique.
           </p>
         </div>
 
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '18px'
+            gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))',
+            gap: '20px'
           }}
         >
           {BRAND_COLORS.map((col) => {
@@ -332,10 +327,10 @@ export const BrandCenterPage: React.FC = () => {
                 key={col.hex}
                 className="card"
                 style={{
-                  padding: '16px',
+                  padding: '18px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '12px',
+                  gap: '14px',
                   cursor: 'pointer'
                 }}
                 onClick={() => handleCopyHex(col.hex)}
@@ -343,54 +338,54 @@ export const BrandCenterPage: React.FC = () => {
                 {/* Visual Swatch */}
                 <div
                   style={{
-                    height: '110px',
+                    height: '115px',
                     borderRadius: 'var(--radius-md)',
                     backgroundColor: col.hex,
                     display: 'flex',
                     alignItems: 'flex-end',
                     justifyContent: 'flex-end',
-                    padding: '10px',
-                    border: '1px solid rgba(0,0,0,0.06)',
+                    padding: '12px',
+                    border: '1px solid rgba(0,0,0,0.08)',
                     boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1)'
                   }}
                 >
                   <button
                     className="btn btn-secondary btn-sm"
                     style={{
-                      background: 'rgba(255,255,255,0.92)',
-                      fontSize: '0.72rem',
-                      padding: '4px 8px',
-                      color: '#18201D',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                      background: 'rgba(255,255,255,0.95)',
+                      fontSize: '0.76rem',
+                      padding: '5px 10px',
+                      color: '#121A16',
+                      fontWeight: 650,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.18)'
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCopyHex(col.hex);
                     }}
                   >
-                    {isCopied ? <Check size={12} color="#15803d" /> : <Copy size={12} />}
+                    {isCopied ? <Check size={13} color="#15803d" /> : <Copy size={13} />}
                     {isCopied ? 'Copiado!' : 'Copiar HEX'}
                   </button>
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {col.name}
-                    </h4>
-                  </div>
-                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '4px 0' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {col.name}
+                  </h4>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0', lineHeight: 1.45, fontWeight: 450 }}>
                     {col.role}
                   </div>
                   <div
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: '0.78rem',
+                      fontSize: '0.82rem',
                       fontFamily: 'monospace',
-                      paddingTop: '8px',
+                      fontWeight: 600,
+                      paddingTop: '10px',
                       borderTop: '1px solid var(--cream-border-subtle)',
-                      marginTop: '8px',
+                      marginTop: '10px',
                       color: 'var(--text-secondary)'
                     }}
                   >
@@ -405,15 +400,15 @@ export const BrandCenterPage: React.FC = () => {
       </section>
 
       {/* 3. SEÇÃO TIPOGRAFIA */}
-      <section>
-        <div style={{ marginBottom: '16px' }}>
-          <span style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
             03 • Tipografia
           </span>
-          <h2 className="font-serif" style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '2px' }}>
+          <h2 className="font-serif" style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>
             Sistema Tipográfico
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: 450 }}>
             Equilíbrio entre prestígio editorial e clareza funcional de software moderno.
           </p>
         </div>
@@ -421,68 +416,70 @@ export const BrandCenterPage: React.FC = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-            gap: '24px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+            gap: '28px'
           }}
         >
           {/* Serif Card */}
-          <div className="card" style={{ padding: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <div className="card" style={{ padding: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
               <span className="badge badge-service">Institucional & Títulos</span>
             </div>
-            <h3 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)', marginBottom: '8px' }}>
+            <h3 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', marginBottom: '8px' }}>
               Cormorant Garamond
             </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: '22px', fontWeight: 450 }}>
               Serif clássica, refinada e imponente. Usada em títulos nobres, citações, manifestos e capas editoriais.
             </p>
 
             <div
               style={{
-                padding: '20px',
+                padding: '22px 24px',
                 background: 'var(--cream-subtle)',
                 borderRadius: 'var(--radius-md)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px'
+                gap: '12px',
+                borderLeft: '3px solid var(--sand-gold)'
               }}
             >
-              <div className="font-serif" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1.2 }}>
+              <div className="font-serif" style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1.25 }}>
                 "Estrutura precede o crescimento."
               </div>
-              <div className="font-serif" style={{ fontSize: '1.15rem', fontStyle: 'italic', color: 'var(--sand-gold-dark)' }}>
+              <div className="font-serif" style={{ fontSize: '1.25rem', fontStyle: 'italic', color: 'var(--sand-gold-dark)', fontWeight: 600 }}>
                 Estratégia sólida para marcas que visam o topo do mercado.
               </div>
             </div>
           </div>
 
           {/* Sans-serif Card */}
-          <div className="card" style={{ padding: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <div className="card" style={{ padding: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
               <span className="badge badge-service">Interface & Operação</span>
             </div>
-            <h3 className="font-sans" style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--green-deep)', marginBottom: '8px' }}>
+            <h3 className="font-sans" style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--green-deep)', marginBottom: '8px' }}>
               Plus Jakarta Sans
             </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Sans-serif moderna de alta legibilidade, geometria equilibrada e precisão cirúrgica em todas as resoluções.
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: '22px', fontWeight: 450 }}>
+              Sans-serif moderna de alta legibilidade, pesos 400-800 e precisão cirúrgica em todas as resoluções.
             </p>
 
             <div
               style={{
-                padding: '20px',
+                padding: '22px 24px',
                 background: 'var(--cream-subtle)',
                 borderRadius: 'var(--radius-md)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '10px'
+                gap: '10px',
+                borderLeft: '3px solid var(--green-primary)'
               }}
             >
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 Dashboards, Tabelas, Métricas e Formulários
               </div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Desenvolvida para proporcionar leitura fluida, rápida absorção de dados complexos e conforto visual prolongado.
+              <div style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6, fontWeight: 450 }}>
+                Desenvolvida para proporcionar leitura fluida, rápida absorção de dados operacionais e conforto visual em sessões prolongadas.
               </div>
             </div>
           </div>
@@ -490,12 +487,12 @@ export const BrandCenterPage: React.FC = () => {
       </section>
 
       {/* 4. SEÇÃO TOM DE VOZ & POSICIONAMENTO */}
-      <section>
-        <div style={{ marginBottom: '16px' }}>
-          <span style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
             04 • Voz & Posicionamento
           </span>
-          <h2 className="font-serif" style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '2px' }}>
+          <h2 className="font-serif" style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>
             Tom de Voz Alicerce
           </h2>
         </div>
@@ -504,9 +501,8 @@ export const BrandCenterPage: React.FC = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+            gap: '18px'
           }}
         >
           {[
@@ -520,14 +516,14 @@ export const BrandCenterPage: React.FC = () => {
               key={idx}
               className="card"
               style={{
-                padding: '20px',
-                borderTop: '3px solid var(--sand-gold)'
+                padding: '24px 20px',
+                borderTop: '3.5px solid var(--sand-gold)'
               }}
             >
-              <h4 className="font-serif" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--green-deep)', marginBottom: '6px' }}>
+              <h4 className="font-serif" style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--green-deep)', marginBottom: '8px' }}>
                 {item.word}
               </h4>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, fontWeight: 450 }}>
                 {item.desc}
               </p>
             </div>
@@ -540,22 +536,23 @@ export const BrandCenterPage: React.FC = () => {
           style={{
             background: 'linear-gradient(135deg, #0B221B 0%, #12352B 100%)',
             color: '#FAF8F5',
-            padding: '36px',
-            border: '1px solid var(--sand-gold)'
+            padding: '40px',
+            border: '1px solid var(--sand-gold)',
+            boxShadow: 'var(--shadow-md)'
           }}
         >
-          <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--sand-gold)', fontWeight: 700, marginBottom: '8px' }}>
+          <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--sand-gold)', fontWeight: 700, marginBottom: '10px' }}>
             Posicionamento Institucional
           </div>
 
           <h3
             className="font-serif"
             style={{
-              fontSize: '2rem',
+              fontSize: '2.2rem',
               fontWeight: 700,
               color: '#ffffff',
               marginBottom: '14px',
-              lineHeight: 1.2
+              lineHeight: 1.25
             }}
           >
             A Alicerce não é apenas uma agência.
@@ -563,10 +560,11 @@ export const BrandCenterPage: React.FC = () => {
 
           <p
             style={{
-              fontSize: '1.15rem',
-              color: 'rgba(255,255,255,0.85)',
+              fontSize: '1.2rem',
+              color: 'rgba(255,255,255,0.88)',
               lineHeight: 1.6,
-              maxWidth: '820px'
+              maxWidth: '840px',
+              fontWeight: 450
             }}
           >
             A Alicerce estrutura marcas, presença, aquisição e comunicação para negócios que querem crescer com base.
@@ -576,19 +574,19 @@ export const BrandCenterPage: React.FC = () => {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '12px',
-              marginTop: '24px',
-              padding: '10px 18px',
+              gap: '14px',
+              marginTop: '28px',
+              padding: '12px 22px',
               borderRadius: 'var(--radius-full)',
-              background: 'rgba(197, 168, 128, 0.15)',
+              background: 'rgba(197, 168, 128, 0.16)',
               border: '1px solid var(--sand-gold)'
             }}
           >
-            <span className="font-serif" style={{ fontSize: '1.2rem', color: '#fff', fontWeight: 700 }}>
+            <span className="font-serif" style={{ fontSize: '1.3rem', color: '#ffffff', fontWeight: 700 }}>
               Alicerce
             </span>
-            <span style={{ color: 'var(--sand-gold)', fontSize: '0.85rem' }}>•</span>
-            <span style={{ color: 'var(--sand-gold-light)', fontSize: '0.88rem' }}>
+            <span style={{ color: 'var(--sand-gold)', fontSize: '0.9rem' }}>•</span>
+            <span style={{ color: 'var(--sand-gold-light)', fontSize: '0.94rem', fontWeight: 600 }}>
               A estrutura do seu negócio.
             </span>
           </div>
@@ -596,15 +594,15 @@ export const BrandCenterPage: React.FC = () => {
       </section>
 
       {/* 5. SEÇÃO DIREÇÃO EDITORIAL (OS 4 PILARES) */}
-      <section>
-        <div style={{ marginBottom: '16px' }}>
-          <span style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--sand-gold-dark)' }}>
             05 • Conteúdo & Matriz de Produção
           </span>
-          <h2 className="font-serif" style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '2px' }}>
+          <h2 className="font-serif" style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>
             Direção Editorial Alicerce
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: 450 }}>
             Modelo: <strong>Editorial + Infotainment + Social-first</strong>
           </p>
         </div>
@@ -613,7 +611,7 @@ export const BrandCenterPage: React.FC = () => {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '20px'
+            gap: '22px'
           }}
         >
           {[
@@ -645,29 +643,29 @@ export const BrandCenterPage: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                padding: '24px'
+                padding: '26px'
               }}
             >
               <div>
                 <div
                   className="font-serif"
                   style={{
-                    fontSize: '1.8rem',
+                    fontSize: '2rem',
                     fontWeight: 700,
                     color: 'var(--sand-gold-dark)',
                     lineHeight: 1,
-                    marginBottom: '10px'
+                    marginBottom: '12px'
                   }}
                 >
                   {pillar.num}
                 </div>
                 <h3
                   className="font-serif"
-                  style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}
+                  style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}
                 >
                   {pillar.title}
                 </h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.55, fontWeight: 450 }}>
                   {pillar.desc}
                 </p>
               </div>

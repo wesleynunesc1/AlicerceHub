@@ -9,7 +9,6 @@ import {
   FileText,
   FileCode,
   FileSpreadsheet,
-  File,
   Link,
   Download
 } from 'lucide-react';
@@ -37,10 +36,7 @@ interface MaterialsPageProps {
   onClearSelectedMaterial?: () => void;
 }
 
-export const MaterialsPage: React.FC<MaterialsPageProps> = ({
-  selectedMaterialId,
-  onClearSelectedMaterial
-}) => {
+export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
   const { showToast } = useToast();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [activeCategory, setActiveCategory] = useState<'Todas' | MaterialCategory>('Todas');
@@ -160,7 +156,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
   });
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       {/* Page Title & Action */}
       <div
         style={{
@@ -168,20 +164,23 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px',
-          marginBottom: '28px'
+          gap: '16px'
         }}
       >
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)' }}>
+          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)' }}>
             Materiais
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
             Biblioteca central de templates, contratos, briefings e documentos internos da Alicerce.
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '8px' }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleOpenCreate}
+          style={{ gap: '8px', padding: '12px 24px', fontSize: '0.96rem' }}
+        >
           <Plus size={18} /> Adicionar Material
         </button>
       </div>
@@ -190,22 +189,21 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
       <div
         className="card"
         style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
+          padding: '18px 24px',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px'
         }}
       >
-        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
               style={{
-                padding: '8px 16px',
+                padding: '9px 18px',
                 borderRadius: 'var(--radius-full)',
-                fontSize: '0.82rem',
+                fontSize: '0.86rem',
                 fontWeight: activeCategory === cat ? 700 : 500,
                 background: activeCategory === cat ? 'var(--green-primary)' : 'var(--cream-subtle)',
                 color: activeCategory === cat ? '#ffffff' : 'var(--text-secondary)',
@@ -220,16 +218,16 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
           ))}
         </div>
 
-        <div style={{ position: 'relative', width: '100%', maxWidth: '440px' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
           <Search
             size={18}
             color="var(--text-muted)"
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+            style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
           />
           <input
             type="text"
             className="form-input"
-            style={{ paddingLeft: '38px', borderRadius: 'var(--radius-full)' }}
+            style={{ paddingLeft: '42px', borderRadius: 'var(--radius-full)' }}
             placeholder="Pesquisar materiais por título ou descrição..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -241,9 +239,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
       {filteredMaterials.length === 0 ? (
         <div className="card empty-state">
           <div className="empty-state-icon">
-            <FolderOpen size={28} />
+            <FolderOpen size={30} />
           </div>
-          <h3 className="empty-state-title">Nenhum material cadastrado</h3>
+          <h3 className="empty-state-title">Nenhum material encontrado</h3>
           <p className="empty-state-text">
             Nenhum documento encontrado na categoria selecionada.
           </p>
@@ -255,8 +253,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
-            gap: '20px'
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: '24px'
           }}
         >
           {filteredMaterials.map((mat) => (
@@ -270,12 +268,12 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
               }}
             >
               <div>
-                <div className="card-header" style={{ marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="card-header" style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div
                       style={{
-                        width: '44px',
-                        height: '44px',
+                        width: '46px',
+                        height: '46px',
                         borderRadius: 'var(--radius-md)',
                         background: 'var(--cream-subtle)',
                         border: '1px solid var(--cream-border)',
@@ -290,21 +288,21 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     <div>
                       <span
                         style={{
-                          fontSize: '0.72rem',
+                          fontSize: '0.76rem',
                           fontWeight: 700,
                           textTransform: 'uppercase',
                           color: 'var(--sand-gold-dark)',
-                          letterSpacing: '0.04em'
+                          letterSpacing: '0.06em'
                         }}
                       >
                         {mat.category}
                       </span>
                       <h4
                         style={{
-                          fontSize: '1.05rem',
+                          fontSize: '1.1rem',
                           fontWeight: 700,
                           color: 'var(--text-primary)',
-                          lineHeight: 1.25,
+                          lineHeight: 1.3,
                           marginTop: '2px'
                         }}
                       >
@@ -316,10 +314,11 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
 
                 <p
                   style={{
-                    fontSize: '0.84rem',
+                    fontSize: '0.88rem',
                     color: 'var(--text-secondary)',
-                    lineHeight: 1.45,
-                    marginBottom: '16px'
+                    lineHeight: 1.5,
+                    marginBottom: '18px',
+                    fontWeight: 450
                   }}
                 >
                   {mat.description}
@@ -330,15 +329,16 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    fontSize: '0.76rem',
+                    fontSize: '0.8rem',
                     color: 'var(--text-muted)',
                     background: 'var(--cream-subtle)',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-sm)'
+                    padding: '9px 14px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontWeight: 500
                   }}
                 >
-                  <span>Resp.: <strong>{mat.responsible}</strong></span>
-                  <span>Atualizado: <strong>{new Date(mat.updatedAt).toLocaleDateString('pt-BR')}</strong></span>
+                  <span>Resp.: <strong style={{ color: 'var(--text-primary)' }}>{mat.responsible}</strong></span>
+                  <span>Atualizado: <strong style={{ color: 'var(--text-primary)' }}>{new Date(mat.updatedAt).toLocaleDateString('pt-BR')}</strong></span>
                 </div>
               </div>
 
@@ -348,7 +348,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  paddingTop: '14px',
+                  paddingTop: '16px',
                   borderTop: '1px solid var(--cream-border-subtle)',
                   marginTop: '16px'
                 }}
@@ -359,17 +359,17 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     target="_blank"
                     rel="noreferrer"
                     className="btn btn-secondary btn-sm"
-                    style={{ gap: '6px', fontSize: '0.8rem' }}
+                    style={{ gap: '6px', fontSize: '0.82rem' }}
                   >
-                    Abrir Material <ExternalLink size={13} />
+                    Abrir Material <ExternalLink size={14} />
                   </a>
                 ) : (
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => showToast('Download iniciado.', 'info')}
-                    style={{ gap: '6px', fontSize: '0.8rem' }}
+                    style={{ gap: '6px', fontSize: '0.82rem' }}
                   >
-                    Baixar Arquivo <Download size={13} />
+                    Baixar Arquivo <Download size={14} />
                   </button>
                 )}
 
@@ -380,7 +380,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     onClick={(e) => handleOpenEdit(mat, e)}
                     title="Editar material"
                   >
-                    <Edit2 size={14} />
+                    <Edit2 size={15} />
                   </button>
                   <button
                     className="sidebar-collapse-btn"
@@ -388,7 +388,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     onClick={() => setMaterialToDelete(mat)}
                     title="Excluir material"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               </div>
@@ -403,6 +403,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
         onClose={() => setIsModalOpen(false)}
         title={editingMaterial ? 'Editar Material' : 'Adicionar Novo Material'}
         subtitle="Catalogar arquivo, template ou link na biblioteca operacional"
+        maxWidth="700px"
       >
         <form onSubmit={handleSaveMaterial}>
           <div className="form-group">
@@ -491,7 +492,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '18px' }}>
             <button
               type="button"
               className="btn btn-secondary"

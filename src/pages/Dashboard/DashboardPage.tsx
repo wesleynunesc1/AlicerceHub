@@ -6,10 +6,10 @@ import {
   Calendar,
   ArrowUpRight,
   Sparkles,
-  ChevronRight,
+  TrendingUp,
   FolderOpen,
   GitMerge,
-  CheckCircle2
+  ArrowRight
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { Badge } from '../../components/Common/Badge';
@@ -36,7 +36,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const inProgressProjectsCount = projects.filter((p) => p.status === 'Em produção').length;
   const waitingClientProjectsCount = projects.filter((p) => p.status === 'Aguardando cliente').length;
 
-  // Upcoming deliveries (projects not finished, sorted by due date)
+  // Upcoming deliveries sorted chronologically
   const upcomingDeliveries = [...projects]
     .filter((p) => p.status !== 'Finalizado')
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -54,27 +54,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   const firstName = user.name.split(' ')[0];
 
+  const formatDeliveryDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    return { day, month };
+  };
+
   return (
-    <div>
-      {/* Header section with refined editorial greeting */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {/* Editorial Header Section */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
-          marginBottom: '32px',
-          gap: '6px'
+          gap: '8px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span
             style={{
-              fontSize: '0.74rem',
+              fontSize: '0.76rem',
               fontWeight: 700,
               textTransform: 'uppercase',
-              letterSpacing: '0.14em',
+              letterSpacing: '0.12em',
               color: 'var(--sand-gold-dark)',
               background: 'var(--sand-gold-tint)',
-              padding: '3px 10px',
+              padding: '4px 12px',
               borderRadius: 'var(--radius-full)'
             }}
           >
@@ -85,27 +91,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         <h1
           className="font-serif"
           style={{
-            fontSize: '2.4rem',
+            fontSize: '2.5rem',
             fontWeight: 700,
             color: 'var(--green-deep)',
             letterSpacing: '-0.02em',
-            marginTop: '4px'
+            margin: '4px 0 2px'
           }}
         >
           {getGreeting()}, {firstName}.
         </h1>
 
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', maxWidth: '640px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 450, maxWidth: '680px' }}>
           Aqui está uma visão geral da operação da Alicerce.
         </p>
       </div>
 
-      {/* 4 Metric Cards */}
+      {/* 4 Metric Cards with Subtle Trends and Clear Hierarchy */}
       <div className="metrics-grid">
         <div className="metric-card" onClick={() => onNavigate('clients')} style={{ cursor: 'pointer' }}>
           <div className="metric-info">
             <span className="metric-label">Clientes Ativos</span>
             <span className="metric-value">{activeClientsCount}</span>
+            <span className="metric-subtext">
+              <TrendingUp size={13} /> +20% vs mês anterior
+            </span>
           </div>
           <div className="metric-icon-wrap">
             <Users size={24} />
@@ -116,6 +125,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           <div className="metric-info">
             <span className="metric-label">Em Andamento</span>
             <span className="metric-value">{inProgressProjectsCount}</span>
+            <span className="metric-subtext" style={{ color: 'var(--status-prog-text)' }}>
+              Em produção ativa
+            </span>
           </div>
           <div className="metric-icon-wrap" style={{ background: 'var(--status-prog-bg)', color: 'var(--status-prog-text)' }}>
             <Briefcase size={24} />
@@ -126,6 +138,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           <div className="metric-info">
             <span className="metric-label">Aguardando Cliente</span>
             <span className="metric-value">{waitingClientProjectsCount}</span>
+            <span className="metric-subtext" style={{ color: 'var(--status-wait-text)' }}>
+              Revisão de aprovação
+            </span>
           </div>
           <div className="metric-icon-wrap" style={{ background: 'var(--status-wait-bg)', color: 'var(--status-wait-text)' }}>
             <Clock size={24} />
@@ -136,6 +151,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           <div className="metric-info">
             <span className="metric-label">Entregas Próximas</span>
             <span className="metric-value">{upcomingCount}</span>
+            <span className="metric-subtext" style={{ color: 'var(--green-primary)' }}>
+              Próximos 15 dias
+            </span>
           </div>
           <div className="metric-icon-wrap" style={{ background: 'var(--status-active-bg)', color: 'var(--status-active-text)' }}>
             <Calendar size={24} />
@@ -147,17 +165,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '28px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: '32px',
           alignItems: 'start'
         }}
       >
         {/* Left Column: Recent Projects Table */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', gridColumn: 'span 2' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', gridColumn: 'span 2' }}>
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div
               style={{
-                padding: '22px 26px',
+                padding: '24px 30px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -165,7 +183,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               }}
             >
               <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.35rem' }}>
+                <h3 className="card-title font-serif" style={{ fontSize: '1.45rem' }}>
                   Projetos Recentes
                 </h3>
                 <p className="card-subtitle">Fluxo de entregas prioritárias da agência</p>
@@ -199,18 +217,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                       style={{ cursor: 'pointer' }}
                     >
                       <td>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                        <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
                           {proj.name}
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
                           {proj.clientName}
                         </div>
                       </td>
                       <td>
                         <Badge status={proj.service} type="service" />
                       </td>
-                      <td style={{ fontSize: '0.84rem' }}>{proj.responsible}</td>
-                      <td style={{ fontSize: '0.84rem', whiteSpace: 'nowrap' }}>
+                      <td style={{ fontSize: '0.9rem', fontWeight: 500 }}>{proj.responsible}</td>
+                      <td style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', fontWeight: 550 }}>
                         {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
                       </td>
                       <td>
@@ -223,14 +241,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* Quick Access to Key Modules banner */}
+          {/* Brand Center & Metodologia Banner */}
           <div
             className="card"
             style={{
               background: 'linear-gradient(135deg, #0B221B 0%, #12352B 100%)',
               color: '#FAF8F5',
-              padding: '28px',
-              border: '1px solid var(--sand-gold-dark)'
+              padding: '34px 36px',
+              border: '1px solid var(--sand-gold-dark)',
+              boxShadow: 'var(--shadow-md)'
             }}
           >
             <div
@@ -239,7 +258,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 flexWrap: 'wrap',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '20px'
+                gap: '24px'
               }}
             >
               <div>
@@ -251,39 +270,40 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                     color: 'var(--sand-gold)',
                     fontSize: '0.78rem',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.12em',
+                    letterSpacing: '0.14em',
                     fontWeight: 700,
-                    marginBottom: '8px'
+                    marginBottom: '10px'
                   }}
                 >
                   <Sparkles size={16} /> Brand Center & Metodologia
                 </div>
                 <h4
                   className="font-serif"
-                  style={{ fontSize: '1.5rem', fontWeight: 600, color: '#fff', marginBottom: '6px' }}
+                  style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}
                 >
                   A estrutura por trás da nossa operação.
                 </h4>
-                <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.9rem', maxWidth: '520px' }}>
-                  Acesse os manuais de identidade da marca Alicerce, paleta cromática oficial e os SOPs de execução dos nossos serviços.
+                <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.95rem', maxWidth: '560px', lineHeight: 1.55 }}>
+                  Acesse os manuais de identidade da marca Alicerce, paleta cromática com cópia de HEX e os procedimentos operacionais (SOPs) de cada serviço.
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
                 <button
                   className="btn btn-gold"
                   onClick={() => onNavigate('brand-center')}
-                  style={{ gap: '6px' }}
+                  style={{ gap: '8px' }}
                 >
-                  Brand Center
+                  Brand Center <ArrowRight size={16} />
                 </button>
                 <button
                   className="btn btn-secondary"
                   onClick={() => onNavigate('processes')}
                   style={{
                     background: 'rgba(255,255,255,0.1)',
-                    borderColor: 'rgba(255,255,255,0.2)',
-                    color: '#fff'
+                    borderColor: 'rgba(255,255,255,0.25)',
+                    color: '#ffffff',
+                    fontWeight: 600
                   }}
                 >
                   Processos SOP
@@ -294,77 +314,101 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         </div>
 
         {/* Right Column: Upcoming Deliveries & Recent Activities */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          {/* Próximas Entregas */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          {/* Próximas Entregas (Vertical Clean Timeline) */}
           <div className="card">
-            <div className="card-header" style={{ marginBottom: '14px' }}>
+            <div className="card-header" style={{ marginBottom: '18px' }}>
               <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.25rem' }}>
+                <h3 className="card-title font-serif" style={{ fontSize: '1.35rem' }}>
                   Próximas Entregas
                 </h3>
-                <p className="card-subtitle">Prazos mais imediatos</p>
+                <p className="card-subtitle">Prazos e cronogramas imediatos</p>
               </div>
-              <Calendar size={18} color="var(--sand-gold-dark)" />
+              <Calendar size={20} color="var(--sand-gold-dark)" />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {upcomingDeliveries.map((proj) => (
-                <div
-                  key={proj.id}
-                  onClick={() => onNavigate('projects', proj.id)}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--cream-border-subtle)',
-                    background: 'var(--cream-subtle)',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-fast)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {proj.name}
-                    </span>
+            <div className="deliveries-timeline">
+              {upcomingDeliveries.map((proj) => {
+                const { day, month } = formatDeliveryDate(proj.dueDate);
+                return (
+                  <div
+                    key={proj.id}
+                    className="delivery-item"
+                    onClick={() => onNavigate('projects', proj.id)}
+                  >
+                    {/* Left date badge */}
+                    <div className="delivery-date-badge">
+                      <span className="delivery-date-day">{day}</span>
+                      <span className="delivery-date-month">{month}</span>
+                    </div>
+
+                    {/* Middle info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '0.94rem',
+                          fontWeight: 650,
+                          color: 'var(--text-primary)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {proj.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '0.8rem',
+                          color: 'var(--text-muted)',
+                          marginTop: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>{proj.clientName}</span>
+                        <span>•</span>
+                        <span style={{ color: 'var(--sand-gold-dark)', fontWeight: 600 }}>{proj.service}</span>
+                      </div>
+                    </div>
+
+                    {/* Right status */}
+                    <Badge status={proj.status} />
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    <span>{proj.clientName}</span>
-                    <span style={{ fontWeight: 600, color: 'var(--green-primary)' }}>
-                      {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Atividade Recente */}
           <div className="card">
-            <div className="card-header" style={{ marginBottom: '14px' }}>
+            <div className="card-header" style={{ marginBottom: '18px' }}>
               <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.25rem' }}>
+                <h3 className="card-title font-serif" style={{ fontSize: '1.35rem' }}>
                   Atividade Recente
                 </h3>
-                <p className="card-subtitle">Movimentações operacionais</p>
+                <p className="card-subtitle">Histórico de atualizações operacionais</p>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {activities.slice(0, 5).map((act) => (
                 <div
                   key={act.id}
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    gap: '12px',
-                    fontSize: '0.85rem'
+                    gap: '14px',
+                    fontSize: '0.9rem'
                   }}
                 >
                   <div
                     style={{
-                      width: '32px',
-                      height: '32px',
+                      width: '36px',
+                      height: '36px',
                       borderRadius: '50%',
                       background: 'var(--cream-subtle)',
+                      border: '1px solid var(--cream-border)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -372,22 +416,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                       flexShrink: 0
                     }}
                   >
-                    {act.type === 'project' && <Briefcase size={15} />}
-                    {act.type === 'client' && <Users size={15} />}
-                    {act.type === 'material' && <FolderOpen size={15} />}
-                    {act.type === 'process' && <GitMerge size={15} />}
+                    {act.type === 'project' && <Briefcase size={16} />}
+                    {act.type === 'client' && <Users size={16} />}
+                    {act.type === 'material' && <FolderOpen size={16} />}
+                    {act.type === 'process' && <GitMerge size={16} />}
                   </div>
 
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 650, color: 'var(--text-primary)' }}>
                         {act.title}
                       </span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                         {act.timestamp}
                       </span>
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '2px', lineHeight: 1.35 }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '3px', lineHeight: 1.45, fontWeight: 450 }}>
                       {act.description}
                     </p>
                   </div>

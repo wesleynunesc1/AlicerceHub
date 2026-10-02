@@ -3,14 +3,10 @@ import {
   Briefcase,
   Plus,
   Search,
-  Filter,
-  Calendar,
-  User,
-  ArrowRight,
-  Trash2,
-  Edit,
   LayoutGrid,
-  List
+  List,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { Project, ProjectStatus, ServiceType, Client } from '../../types';
@@ -39,7 +35,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   const [statusFilter, setStatusFilter] = useState<'Todos' | ProjectStatus>('Todos');
   const [serviceFilter, setServiceFilter] = useState<'Todos' | ServiceType>('Todos');
   const [clientFilter, setClientFilter] = useState<'Todos' | string>('Todos');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
 
   // Modal create/edit
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -204,7 +200,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   });
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       {/* Page Title & Action */}
       <div
         style={{
@@ -212,20 +208,23 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px',
-          marginBottom: '28px'
+          gap: '16px'
         }}
       >
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)' }}>
+          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)' }}>
             Projetos
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
             Fluxos de trabalho, etapas e entregas ativas por cliente.
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '8px' }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleOpenCreate}
+          style={{ gap: '8px', padding: '12px 24px', fontSize: '0.96rem' }}
+        >
           <Plus size={18} /> Novo Projeto
         </button>
       </div>
@@ -234,25 +233,24 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       <div
         className="card"
         style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
+          padding: '18px 24px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '14px'
+          gap: '16px'
         }}
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
           {/* Search */}
-          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
             <Search
               size={18}
               color="var(--text-muted)"
-              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+              style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
             />
             <input
               type="text"
               className="form-input"
-              style={{ paddingLeft: '38px', borderRadius: 'var(--radius-full)' }}
+              style={{ paddingLeft: '42px', borderRadius: 'var(--radius-full)' }}
               placeholder="Pesquisar projetos, clientes ou serviços..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -260,7 +258,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           </div>
 
           {/* Client Filter */}
-          <div style={{ minWidth: '180px' }}>
+          <div style={{ minWidth: '190px' }}>
             <select
               className="form-select"
               value={clientFilter}
@@ -276,7 +274,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           </div>
 
           {/* Service Filter */}
-          <div style={{ minWidth: '170px' }}>
+          <div style={{ minWidth: '180px' }}>
             <select
               className="form-select"
               value={serviceFilter}
@@ -299,43 +297,43 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           {/* Grid/Table switch */}
           <div style={{ display: 'flex', gap: '2px', border: '1px solid var(--cream-border)', borderRadius: 'var(--radius-md)', padding: '2px' }}>
             <button
-              onClick={() => setViewMode('grid')}
-              style={{
-                padding: '6px 8px',
-                borderRadius: 'var(--radius-sm)',
-                background: viewMode === 'grid' ? 'var(--cream-subtle)' : 'transparent',
-                color: viewMode === 'grid' ? 'var(--green-primary)' : 'var(--text-muted)'
-              }}
-              title="Cards"
-            >
-              <LayoutGrid size={17} />
-            </button>
-            <button
               onClick={() => setViewMode('table')}
               style={{
-                padding: '6px 8px',
+                padding: '7px 10px',
                 borderRadius: 'var(--radius-sm)',
                 background: viewMode === 'table' ? 'var(--cream-subtle)' : 'transparent',
                 color: viewMode === 'table' ? 'var(--green-primary)' : 'var(--text-muted)'
               }}
               title="Tabela"
             >
-              <List size={17} />
+              <List size={18} />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              style={{
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-sm)',
+                background: viewMode === 'grid' ? 'var(--cream-subtle)' : 'transparent',
+                color: viewMode === 'grid' ? 'var(--green-primary)' : 'var(--text-muted)'
+              }}
+              title="Cards"
+            >
+              <LayoutGrid size={18} />
             </button>
           </div>
         </div>
 
         {/* Status Filter Badges */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {(['Todos', 'Planejamento', 'Em produção', 'Aguardando cliente', 'Revisão', 'Finalizado'] as const).map(
             (st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
                 style={{
-                  padding: '5px 12px',
+                  padding: '6px 14px',
                   borderRadius: 'var(--radius-full)',
-                  fontSize: '0.78rem',
+                  fontSize: '0.82rem',
                   fontWeight: statusFilter === st ? 700 : 500,
                   background: statusFilter === st ? 'var(--green-primary)' : 'var(--cream-subtle)',
                   color: statusFilter === st ? '#ffffff' : 'var(--text-secondary)',
@@ -355,7 +353,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       {filteredProjects.length === 0 && (
         <div className="card empty-state">
           <div className="empty-state-icon">
-            <Briefcase size={28} />
+            <Briefcase size={30} />
           </div>
           <h3 className="empty-state-title">Nenhum projeto encontrado</h3>
           <p className="empty-state-text">
@@ -364,111 +362,6 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           <button className="btn btn-primary" onClick={handleOpenCreate}>
             <Plus size={16} /> Criar Novo Projeto
           </button>
-        </div>
-      )}
-
-      {/* Grid View */}
-      {viewMode === 'grid' && filteredProjects.length > 0 && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-            gap: '20px'
-          }}
-        >
-          {filteredProjects.map((proj) => (
-            <div
-              key={proj.id}
-              className="card"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                cursor: 'pointer'
-              }}
-              onClick={() => setActiveProject(proj)}
-            >
-              <div>
-                <div className="card-header" style={{ marginBottom: '10px' }}>
-                  <div>
-                    <span
-                      style={{
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        color: 'var(--sand-gold-dark)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em'
-                      }}
-                    >
-                      {proj.clientName}
-                    </span>
-                    <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                      {proj.name}
-                    </h4>
-                  </div>
-                  <Badge status={proj.status} />
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                  <Badge status={proj.service} type="service" />
-                </div>
-
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '16px' }}>
-                  {proj.description || 'Sem descrição cadastrada.'}
-                </p>
-
-                {/* Progress bar */}
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Progresso ({proj.stages.filter(s => s.completed).length}/{proj.stages.length} etapas)</span>
-                    <span style={{ fontWeight: 700, color: 'var(--green-primary)' }}>{proj.progress}%</span>
-                  </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom metadata */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingTop: '12px',
-                  borderTop: '1px solid var(--cream-border-subtle)',
-                  fontSize: '0.78rem',
-                  color: 'var(--text-muted)'
-                }}
-              >
-                <div>
-                  Prazo: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong>
-                </div>
-
-                <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="sidebar-collapse-btn"
-                    style={{ color: 'var(--text-secondary)' }}
-                    onClick={(e) => handleOpenEdit(proj, e)}
-                    title="Editar projeto"
-                  >
-                    <Edit size={14} />
-                  </button>
-                  <button
-                    className="sidebar-collapse-btn"
-                    style={{ color: '#dc2626' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectToDelete(proj);
-                    }}
-                    title="Excluir projeto"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       )}
 
@@ -495,34 +388,35 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   onClick={() => setActiveProject(proj)}
                   style={{ cursor: 'pointer' }}
                 >
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{proj.name}</td>
-                  <td>{proj.clientName}</td>
+                  <td style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>{proj.name}</td>
+                  <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{proj.clientName}</td>
                   <td>
                     <Badge status={proj.service} type="service" />
                   </td>
-                  <td>{proj.responsible}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td style={{ fontWeight: 500 }}>{proj.responsible}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontWeight: 550 }}>
                     {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
                   </td>
-                  <td style={{ minWidth: '120px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div className="progress-bar-container" style={{ width: '80px' }}>
+                  <td style={{ minWidth: '130px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="progress-bar-container" style={{ width: '85px', height: '7px' }}>
                         <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
                       </div>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{proj.progress}%</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--green-primary)' }}>{proj.progress}%</span>
                     </div>
                   </td>
                   <td>
                     <Badge status={proj.status} />
                   </td>
                   <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'inline-flex', gap: '4px' }}>
+                    <div style={{ display: 'inline-flex', gap: '6px' }}>
                       <button
                         className="sidebar-collapse-btn"
                         style={{ color: 'var(--text-secondary)' }}
                         onClick={(e) => handleOpenEdit(proj, e)}
+                        title="Editar projeto"
                       >
-                        <Edit size={14} />
+                        <Edit size={15} />
                       </button>
                       <button
                         className="sidebar-collapse-btn"
@@ -531,8 +425,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                           e.stopPropagation();
                           setProjectToDelete(proj);
                         }}
+                        title="Excluir projeto"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>
@@ -543,12 +438,121 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         </div>
       )}
 
+      {/* Grid View */}
+      {viewMode === 'grid' && filteredProjects.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+            gap: '24px'
+          }}
+        >
+          {filteredProjects.map((proj) => (
+            <div
+              key={proj.id}
+              className="card"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                cursor: 'pointer'
+              }}
+              onClick={() => setActiveProject(proj)}
+            >
+              <div>
+                <div className="card-header" style={{ marginBottom: '12px' }}>
+                  <div>
+                    <span
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: 'var(--sand-gold-dark)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em'
+                      }}
+                    >
+                      {proj.clientName}
+                    </span>
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+                      {proj.name}
+                    </h4>
+                  </div>
+                  <Badge status={proj.status} />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                  <Badge status={proj.service} type="service" />
+                </div>
+
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '18px', fontWeight: 450 }}>
+                  {proj.description || 'Sem descrição cadastrada.'}
+                </p>
+
+                {/* Progress bar */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>
+                      Progresso ({proj.stages.filter(s => s.completed).length}/{proj.stages.length} etapas)
+                    </span>
+                    <span style={{ fontWeight: 700, color: 'var(--green-primary)' }}>{proj.progress}%</span>
+                  </div>
+                  <div className="progress-bar-container">
+                    <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom metadata */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingTop: '14px',
+                  borderTop: '1px solid var(--cream-border-subtle)',
+                  fontSize: '0.82rem',
+                  color: 'var(--text-muted)',
+                  fontWeight: 500
+                }}
+              >
+                <div>
+                  Prazo: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong>
+                </div>
+
+                <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="sidebar-collapse-btn"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onClick={(e) => handleOpenEdit(proj, e)}
+                    title="Editar projeto"
+                  >
+                    <Edit size={15} />
+                  </button>
+                  <button
+                    className="sidebar-collapse-btn"
+                    style={{ color: '#dc2626' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectToDelete(proj);
+                    }}
+                    title="Excluir projeto"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Modal Criar / Editar Projeto */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingProject ? 'Editar Projeto' : 'Novo Projeto'}
-        subtitle="Vincule a um cliente e defina o escopo operacional"
+        subtitle="Vincule a um cliente e defina o escopo operacional da entrega"
+        maxWidth="700px"
       >
         <form onSubmit={handleSaveProject}>
           <div className="form-group">
@@ -666,7 +670,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '18px' }}>
             <button
               type="button"
               className="btn btn-secondary"

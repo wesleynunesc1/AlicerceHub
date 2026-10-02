@@ -7,11 +7,10 @@ import {
   Building2,
   Mail,
   Phone,
-  ArrowRight,
-  MoreVertical,
   Trash2,
   Edit2,
-  ExternalLink
+  ExternalLink,
+  ChevronRight
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { Client, ClientStatus, ServiceType } from '../../types';
@@ -50,7 +49,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | ClientStatus>('Todos');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table'); // Default to table on desktop as requested
 
   // Modal states
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -180,7 +179,6 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     setClientToDelete(null);
   };
 
-  // Filter clients
   const filteredClients = clients.filter((c) => {
     const matchesSearch =
       c.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -191,28 +189,31 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
   });
 
   return (
-    <div>
-      {/* Top Header & Action */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      {/* Top Header & Prominent CTA Action */}
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px',
-          marginBottom: '28px'
+          gap: '16px'
         }}
       >
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)' }}>
+          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)' }}>
             Clientes
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            Empresas e contas atendidas pela estrutura da Alicerce.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
+            Empresas e contas atendidas pela estrutura operacional da Alicerce.
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '8px' }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleOpenCreate}
+          style={{ gap: '8px', padding: '12px 24px', fontSize: '0.96rem' }}
+        >
           <Plus size={18} /> Novo Cliente
         </button>
       </div>
@@ -221,26 +222,25 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       <div
         className="card"
         style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
+          padding: '18px 24px',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px'
+          gap: '18px'
         }}
       >
         {/* Search */}
-        <div style={{ position: 'relative', flex: '1', minWidth: '240px', maxWidth: '420px' }}>
+        <div style={{ position: 'relative', flex: '1', minWidth: '260px', maxWidth: '460px' }}>
           <Search
             size={18}
             color="var(--text-muted)"
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+            style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
           />
           <input
             type="text"
             className="form-input"
-            style={{ paddingLeft: '38px', borderRadius: 'var(--radius-full)' }}
+            style={{ paddingLeft: '42px', borderRadius: 'var(--radius-full)' }}
             placeholder="Pesquisar por empresa, responsável ou segmento..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -248,16 +248,16 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
         </div>
 
         {/* Status Filter buttons & View Mode */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '4px', background: 'var(--cream-subtle)', padding: '4px', borderRadius: 'var(--radius-md)' }}>
             {(['Todos', 'Ativo', 'Onboarding', 'Pausado', 'Encerrado'] as const).map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
                 style={{
-                  padding: '6px 12px',
+                  padding: '7px 14px',
                   borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.8rem',
+                  fontSize: '0.84rem',
                   fontWeight: statusFilter === st ? 700 : 500,
                   background: statusFilter === st ? 'var(--cream-card)' : 'transparent',
                   color: statusFilter === st ? 'var(--green-deep)' : 'var(--text-muted)',
@@ -273,28 +273,28 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
           {/* View Mode Toggle */}
           <div style={{ display: 'flex', gap: '2px', border: '1px solid var(--cream-border)', borderRadius: 'var(--radius-md)', padding: '2px' }}>
             <button
-              onClick={() => setViewMode('grid')}
-              style={{
-                padding: '6px 8px',
-                borderRadius: 'var(--radius-sm)',
-                background: viewMode === 'grid' ? 'var(--cream-subtle)' : 'transparent',
-                color: viewMode === 'grid' ? 'var(--green-primary)' : 'var(--text-muted)'
-              }}
-              title="Visualização em Cards"
-            >
-              <LayoutGrid size={17} />
-            </button>
-            <button
               onClick={() => setViewMode('table')}
               style={{
-                padding: '6px 8px',
+                padding: '7px 10px',
                 borderRadius: 'var(--radius-sm)',
                 background: viewMode === 'table' ? 'var(--cream-subtle)' : 'transparent',
                 color: viewMode === 'table' ? 'var(--green-primary)' : 'var(--text-muted)'
               }}
-              title="Visualização em Tabela"
+              title="Tabela"
             >
-              <List size={17} />
+              <List size={18} />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              style={{
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-sm)',
+                background: viewMode === 'grid' ? 'var(--cream-subtle)' : 'transparent',
+                color: viewMode === 'grid' ? 'var(--green-primary)' : 'var(--text-muted)'
+              }}
+              title="Cards"
+            >
+              <LayoutGrid size={18} />
             </button>
           </div>
         </div>
@@ -304,11 +304,11 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       {filteredClients.length === 0 && (
         <div className="card empty-state">
           <div className="empty-state-icon">
-            <Building2 size={28} />
+            <Building2 size={30} />
           </div>
           <h3 className="empty-state-title">Nenhum cliente encontrado</h3>
           <p className="empty-state-text">
-            Não encontramos nenhum cliente com os filtros aplicados. Tente ajustar a busca ou cadastre um novo cliente.
+            Não encontramos nenhum cliente com os filtros aplicados. Tente ajustar os termos de pesquisa ou cadastre um novo cliente.
           </p>
           <button className="btn btn-primary" onClick={handleOpenCreate}>
             <Plus size={16} /> Cadastrar Primeiro Cliente
@@ -316,13 +316,112 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
         </div>
       )}
 
-      {/* Grid View */}
+      {/* Table View (Desktop Primary View) */}
+      {viewMode === 'table' && filteredClients.length > 0 && (
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th>Responsável</th>
+                <th>Contato</th>
+                <th>Serviços Contratados</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredClients.map((client) => (
+                <tr
+                  key={client.id}
+                  onClick={() => setViewingClient(client)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '8px',
+                          background: 'var(--green-deep)',
+                          color: 'var(--sand-gold)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: '1rem',
+                          flexShrink: 0
+                        }}
+                      >
+                        {client.companyName.charAt(0)}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
+                          {client.companyName}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                          {client.segment}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ fontWeight: 550, color: 'var(--text-primary)' }}>
+                    {client.contactName}
+                  </td>
+                  <td>
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)', fontWeight: 500 }}>{client.email}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>{client.phone}</div>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxWidth: '280px' }}>
+                      {client.services.slice(0, 3).map((s) => (
+                        <Badge key={s} status={s} type="service" />
+                      ))}
+                      {client.services.length > 3 && (
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', alignSelf: 'center', fontWeight: 600 }}>
+                          +{client.services.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <Badge status={client.status} />
+                  </td>
+                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'inline-flex', gap: '6px' }}>
+                      <button
+                        className="sidebar-collapse-btn"
+                        style={{ color: 'var(--text-secondary)' }}
+                        onClick={() => handleOpenEdit(client)}
+                        title="Editar cliente"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        className="sidebar-collapse-btn"
+                        style={{ color: '#dc2626' }}
+                        onClick={() => setClientToDelete(client)}
+                        title="Excluir cliente"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Grid View (Mobile / Card Alternative) */}
       {viewMode === 'grid' && filteredClients.length > 0 && (
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '20px'
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: '24px'
           }}
         >
           {filteredClients.map((client) => (
@@ -338,12 +437,12 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
               onClick={() => setViewingClient(client)}
             >
               <div>
-                <div className="card-header" style={{ marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="card-header" style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div
                       style={{
-                        width: '40px',
-                        height: '40px',
+                        width: '44px',
+                        height: '44px',
                         borderRadius: 'var(--radius-md)',
                         background: 'var(--green-deep)',
                         color: 'var(--sand-gold)',
@@ -351,16 +450,16 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontWeight: 700,
-                        fontSize: '1.1rem'
+                        fontSize: '1.2rem'
                       }}
                     >
                       {client.companyName.charAt(0)}
                     </div>
                     <div>
-                      <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                      <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.25 }}>
                         {client.companyName}
                       </h4>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                         {client.segment}
                       </span>
                     </div>
@@ -370,25 +469,25 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                 </div>
 
                 {/* Contact information */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '14px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                  <div>Responsável: <strong>{client.contactName}</strong></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Mail size={14} color="var(--text-muted)" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '16px 0', fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+                  <div>Responsável: <strong style={{ color: 'var(--text-primary)' }}>{client.contactName}</strong></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Mail size={15} color="var(--green-primary)" />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.email}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Phone size={14} color="var(--text-muted)" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Phone size={15} color="var(--green-primary)" />
                     <span>{client.phone}</span>
                   </div>
                 </div>
 
                 {/* Services tags */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '12px 0' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '14px 0' }}>
                   {client.services.slice(0, 3).map((svc) => (
                     <Badge key={svc} status={svc} type="service" />
                   ))}
                   {client.services.length > 3 && (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', alignSelf: 'center', fontWeight: 600 }}>
                       +{client.services.length - 3}
                     </span>
                   )}
@@ -401,13 +500,13 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  paddingTop: '14px',
+                  paddingTop: '16px',
                   borderTop: '1px solid var(--cream-border-subtle)',
-                  marginTop: '10px'
+                  marginTop: '12px'
                 }}
               >
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Resp.: {client.accountManager}
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Gestor: <strong style={{ color: 'var(--text-primary)' }}>{client.accountManager}</strong>
                 </span>
 
                 <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
@@ -434,96 +533,22 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
         </div>
       )}
 
-      {/* Table View */}
-      {viewMode === 'table' && filteredClients.length > 0 && (
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Empresa</th>
-                <th>Responsável</th>
-                <th>Contato</th>
-                <th>Serviços Contratados</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map((client) => (
-                <tr
-                  key={client.id}
-                  onClick={() => setViewingClient(client)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {client.companyName}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {client.segment}
-                    </div>
-                  </td>
-                  <td>{client.contactName}</td>
-                  <td>
-                    <div style={{ fontSize: '0.82rem' }}>{client.email}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{client.phone}</div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '260px' }}>
-                      {client.services.slice(0, 2).map((s) => (
-                        <Badge key={s} status={s} type="service" />
-                      ))}
-                      {client.services.length > 2 && (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                          +{client.services.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <Badge status={client.status} />
-                  </td>
-                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'inline-flex', gap: '6px' }}>
-                      <button
-                        className="sidebar-collapse-btn"
-                        style={{ color: 'var(--text-secondary)' }}
-                        onClick={() => handleOpenEdit(client)}
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        className="sidebar-collapse-btn"
-                        style={{ color: '#dc2626' }}
-                        onClick={() => setClientToDelete(client)}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {/* Modal Cadastrar / Editar Cliente */}
       <Modal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         title={editingClient ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}
-        subtitle="Preencha os dados cadastrais e escopo da conta"
-        maxWidth="680px"
+        subtitle="Preencha os dados cadastrais e escopo de atendimento da conta"
+        maxWidth="720px"
       >
         <form onSubmit={handleSaveClient}>
           {/* Dados da Empresa */}
-          <div style={{ marginBottom: '20px' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--sand-gold-dark)' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--sand-gold-dark)' }}>
               1. Dados da Empresa
             </span>
 
-            <div className="form-row" style={{ marginTop: '10px' }}>
+            <div className="form-row" style={{ marginTop: '12px' }}>
               <div className="form-group">
                 <label className="form-label">Nome da Empresa *</label>
                 <input
@@ -551,7 +576,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
 
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">E-mail *</label>
+                <label className="form-label">E-mail Corporativo *</label>
                 <input
                   type="email"
                   className="form-input"
@@ -580,7 +605,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                 <input
                   type="url"
                   className="form-input"
-                  placeholder="https://..."
+                  placeholder="https://empresa.com.br"
                   value={formData.website}
                   onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                 />
@@ -591,18 +616,18 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="@perfil"
+                  placeholder="@empresa"
                   value={formData.instagram}
                   onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Segmento de Mercado</label>
+                <label className="form-label">Segmento</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Ex: Imobiliário Alto Padrão"
+                  placeholder="Ex: Arquitetura de Alto Padrão"
                   value={formData.segment}
                   onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
                 />
@@ -611,8 +636,8 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
           </div>
 
           {/* Serviços Contratados */}
-          <div style={{ marginBottom: '20px' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--sand-gold-dark)' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--sand-gold-dark)' }}>
               2. Serviços Contratados (Selecione múltiplos)
             </span>
 
@@ -621,7 +646,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                 gap: '8px',
-                marginTop: '10px'
+                marginTop: '12px'
               }}
             >
               {ALL_SERVICES.map((svc) => {
@@ -632,9 +657,9 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                     type="button"
                     onClick={() => handleToggleService(svc)}
                     style={{
-                      padding: '8px 12px',
+                      padding: '10px 14px',
                       borderRadius: 'var(--radius-md)',
-                      fontSize: '0.8rem',
+                      fontSize: '0.84rem',
                       fontWeight: 600,
                       textAlign: 'left',
                       border: isSelected ? '1px solid var(--green-primary)' : '1px solid var(--cream-border)',
@@ -653,11 +678,11 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
 
           {/* Informações Internas */}
           <div style={{ marginBottom: '24px' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--sand-gold-dark)' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--sand-gold-dark)' }}>
               3. Informações Internas & Status
             </span>
 
-            <div className="form-row" style={{ marginTop: '10px' }}>
+            <div className="form-row" style={{ marginTop: '12px' }}>
               <div className="form-group">
                 <label className="form-label">Data de Entrada</label>
                 <input
@@ -697,7 +722,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Observações Internas</label>
+              <label className="form-label">Observações Estratégicas</label>
               <textarea
                 className="form-textarea"
                 rows={3}

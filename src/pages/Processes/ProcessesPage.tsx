@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  GitMerge,
   Search,
   Plus,
   Edit2,
@@ -8,10 +7,14 @@ import {
   ArrowRight,
   CheckCircle2,
   ListOrdered,
-  ChevronRight,
-  Share2,
   BookOpen,
-  ArrowLeft
+  ArrowLeft,
+  ChevronRight,
+  User,
+  Calendar,
+  Layers,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { SOPProcess, ProcessCategory, ProcessStep, ServiceType } from '../../types';
@@ -43,6 +46,9 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
   const [activeCategory, setActiveCategory] = useState<'Todas' | ProcessCategory>('Todas');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingProcess, setViewingProcess] = useState<SOPProcess | null>(null);
+
+  // Completed checklist items in SOP viewer state
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
   // Edit / Create modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -159,7 +165,13 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
     setProcessToDelete(null);
   };
 
-  // Add / Edit step in form
+  const handleToggleCheckItem = (key: string) => {
+    setCheckedItems((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
   const handleAddStepToForm = () => {
     const nextNum = (formData.steps.length + 1).toString().padStart(2, '0');
     setFormData({
@@ -169,14 +181,13 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
         {
           stepNumber: nextNum,
           title: 'Nova Etapa Operacional',
-          description: 'Descrição do que deve ser executado nesta fase.',
+          description: 'Descrição do procedimento desta fase.',
           checklist: ['Item de conferência 1']
         }
       ]
     });
   };
 
-  // Filtered
   const filteredProcesses = processes.filter((p) => {
     const matchesCategory = activeCategory === 'Todas' || p.category === activeCategory;
     const matchesSearch =
@@ -186,62 +197,77 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
     return matchesCategory && matchesSearch;
   });
 
-  // DETAIL VIEW OF SOP
+  // DETAIL VIEW OF SOP WITH VERTICAL STEPPER
   if (viewingProcess) {
     return (
-      <div>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => {
-            setViewingProcess(null);
-            if (onClearSelectedProcess) onClearSelectedProcess();
-          }}
-          style={{ marginBottom: '20px', gap: '6px' }}
-        >
-          <ArrowLeft size={16} /> Voltar para lista de processos
-        </button>
+      <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        {/* Breadcrumb Navigation */}
+        <div className="breadcrumb-container">
+          <span
+            className="breadcrumb-link"
+            onClick={() => {
+              setViewingProcess(null);
+              if (onClearSelectedProcess) onClearSelectedProcess();
+            }}
+          >
+            Processos
+          </span>
+          <ChevronRight size={14} />
+          <span
+            className="breadcrumb-link"
+            onClick={() => {
+              setActiveCategory(viewingProcess.category);
+              setViewingProcess(null);
+            }}
+          >
+            {viewingProcess.category}
+          </span>
+          <ChevronRight size={14} />
+          <span className="breadcrumb-current">{viewingProcess.service}</span>
+        </div>
 
-        {/* Process Header */}
-        <div className="card" style={{ marginBottom: '28px' }}>
+        {/* Process Master Header */}
+        <div className="card" style={{ padding: '32px' }}>
           <div
             style={{
               display: 'flex',
               flexWrap: 'wrap',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
-              gap: '16px',
-              marginBottom: '16px'
+              gap: '20px',
+              marginBottom: '20px'
             }}
           >
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                 <span
                   style={{
-                    fontSize: '0.74rem',
+                    fontSize: '0.78rem',
                     fontWeight: 700,
                     textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
                     color: 'var(--green-primary)',
                     background: 'var(--green-tint)',
-                    padding: '3px 10px',
+                    padding: '4px 12px',
                     borderRadius: 'var(--radius-full)'
                   }}
                 >
-                  Categoria: {viewingProcess.category}
+                  {viewingProcess.category}
                 </span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>•</span>
                 <Badge status={viewingProcess.service} type="service" />
               </div>
 
-              <h1 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)' }}>
+              <h1 className="font-serif" style={{ fontSize: '2.3rem', fontWeight: 700, color: 'var(--green-deep)' }}>
                 {viewingProcess.title}
               </h1>
 
-              <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginTop: '8px', maxWidth: '780px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', marginTop: '10px', maxWidth: '780px', lineHeight: 1.6, fontWeight: 450 }}>
                 {viewingProcess.description}
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '12px' }}>
               <button
                 className="btn btn-secondary"
                 onClick={() => handleOpenEdit(viewingProcess)}
@@ -255,97 +281,102 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
           <div
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               gap: '24px',
-              paddingTop: '16px',
+              paddingTop: '20px',
               borderTop: '1px solid var(--cream-border-subtle)',
-              fontSize: '0.82rem',
-              color: 'var(--text-muted)'
+              fontSize: '0.88rem',
+              color: 'var(--text-muted)',
+              fontWeight: 500
             }}
           >
-            <span>Responsável pelo Método: <strong style={{ color: 'var(--text-primary)' }}>{viewingProcess.responsible}</strong></span>
-            <span>Última Atualização: <strong style={{ color: 'var(--text-primary)' }}>{new Date(viewingProcess.updatedAt).toLocaleDateString('pt-BR')}</strong></span>
-            <span>Total de Etapas: <strong style={{ color: 'var(--green-primary)' }}>{viewingProcess.steps.length} passos</strong></span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <User size={16} color="var(--green-primary)" />
+              <span>Responsável: <strong style={{ color: 'var(--text-primary)' }}>{viewingProcess.responsible}</strong></span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Calendar size={16} color="var(--green-primary)" />
+              <span>Atualizado: <strong style={{ color: 'var(--text-primary)' }}>{new Date(viewingProcess.updatedAt).toLocaleDateString('pt-BR')}</strong></span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={16} color="var(--green-primary)" />
+              <span>Etapas: <strong style={{ color: 'var(--green-primary)' }}>{viewingProcess.steps.length} passos estruturados</strong></span>
+            </div>
           </div>
         </div>
 
-        {/* Steps List (Numbered 01, 02, etc.) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Vertical Stepper Process View */}
+        <div className="stepper-container" style={{ padding: '8px 0' }}>
           {viewingProcess.steps.map((step, idx) => (
-            <div
-              key={idx}
-              className="card"
-              style={{
-                position: 'relative',
-                borderLeft: '4px solid var(--green-primary)',
-                padding: '24px 28px'
-              }}
-            >
-              <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start' }}>
-                {/* Step number badge */}
-                <div
-                  style={{
-                    fontFamily: 'var(--font-serif)',
-                    fontSize: '1.8rem',
-                    fontWeight: 700,
-                    color: 'var(--sand-gold-dark)',
-                    lineHeight: 1,
-                    minWidth: '40px'
-                  }}
-                >
-                  {step.stepNumber}
-                </div>
+            <div key={idx} className="stepper-item">
+              <div className="stepper-line" />
+              <div className="stepper-node">{step.stepNumber}</div>
 
-                <div style={{ flex: 1 }}>
+              <div className="stepper-content">
+                <div className="card" style={{ padding: '26px 28px' }}>
                   <h3
                     className="font-serif"
-                    style={{ fontSize: '1.35rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}
+                    style={{ fontSize: '1.45rem', fontWeight: 650, color: 'var(--text-primary)', marginBottom: '8px' }}
                   >
-                    {step.title}
+                    {step.stepNumber} — {step.title}
                   </h3>
 
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '16px' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.96rem', marginBottom: '18px', lineHeight: 1.6, fontWeight: 450 }}>
                     {step.description}
                   </p>
 
-                  {/* Step Checklist */}
+                  {/* Checklist with Interactive Completion */}
                   {step.checklist && step.checklist.length > 0 && (
                     <div
                       style={{
                         background: 'var(--cream-subtle)',
                         borderRadius: 'var(--radius-md)',
-                        padding: '16px 20px',
-                        border: '1px solid var(--cream-border-subtle)'
+                        padding: '18px 20px',
+                        border: '1px solid var(--cream-border)'
                       }}
                     >
                       <div
                         style={{
-                          fontSize: '0.76rem',
+                          fontSize: '0.78rem',
                           fontWeight: 700,
                           textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                          color: 'var(--text-muted)',
-                          marginBottom: '10px'
+                          letterSpacing: '0.07em',
+                          color: 'var(--sand-gold-dark)',
+                          marginBottom: '12px'
                         }}
                       >
-                        Checklist Obrigatório desta Etapa
+                        Checklist Operacional
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {step.checklist.map((item, itemIdx) => (
-                          <div
-                            key={itemIdx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                              fontSize: '0.88rem',
-                              color: 'var(--text-primary)'
-                            }}
-                          >
-                            <CheckCircle2 size={16} color="var(--green-primary)" style={{ flexShrink: 0 }} />
-                            <span>{item}</span>
-                          </div>
-                        ))}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {step.checklist.map((item, itemIdx) => {
+                          const itemKey = `${viewingProcess.id}-${idx}-${itemIdx}`;
+                          const isDone = Boolean(checkedItems[itemKey]);
+                          return (
+                            <div
+                              key={itemIdx}
+                              onClick={() => handleToggleCheckItem(itemKey)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                fontSize: '0.92rem',
+                                color: isDone ? 'var(--text-muted)' : 'var(--text-primary)',
+                                textDecoration: isDone ? 'line-through' : 'none',
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                transition: 'all var(--transition-fast)'
+                              }}
+                            >
+                              {isDone ? (
+                                <CheckSquare size={18} color="var(--status-active-text)" style={{ flexShrink: 0 }} />
+                              ) : (
+                                <Square size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                              )}
+                              <span style={{ fontWeight: isDone ? 450 : 500 }}>{item}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -358,8 +389,9 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
     );
   }
 
+  // PROCESS LIBRARY VIEW
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       {/* Page Header */}
       <div
         style={{
@@ -367,16 +399,15 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px',
-          marginBottom: '28px'
+          gap: '16px'
         }}
       >
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)' }}>
+          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)' }}>
             Processos
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem' }}>
-            A maneira Alicerce de executar cada serviço.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
+            A maneira Alicerce de executar cada serviço. Biblioteca de procedimentos padronizados (SOPs).
           </p>
         </div>
 
@@ -389,23 +420,22 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
       <div
         className="card"
         style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
+          padding: '18px 24px',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px'
         }}
       >
         {/* Category Pills */}
-        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
               style={{
-                padding: '8px 16px',
+                padding: '9px 18px',
                 borderRadius: 'var(--radius-full)',
-                fontSize: '0.84rem',
+                fontSize: '0.86rem',
                 fontWeight: activeCategory === cat ? 700 : 500,
                 background: activeCategory === cat ? 'var(--green-primary)' : 'var(--cream-subtle)',
                 color: activeCategory === cat ? '#ffffff' : 'var(--text-secondary)',
@@ -421,16 +451,16 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
         </div>
 
         {/* Search Input */}
-        <div style={{ position: 'relative', width: '100%', maxWidth: '460px' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
           <Search
             size={18}
             color="var(--text-muted)"
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+            style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
           />
           <input
             type="text"
             className="form-input"
-            style={{ paddingLeft: '38px', borderRadius: 'var(--radius-full)' }}
+            style={{ paddingLeft: '42px', borderRadius: 'var(--radius-full)' }}
             placeholder="Pesquisar por SOP, serviço ou metodologia..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -442,8 +472,8 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-          gap: '20px'
+          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+          gap: '24px'
         }}
       >
         {filteredProcesses.map((proc) => (
@@ -459,14 +489,14 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
             onClick={() => setViewingProcess(proc)}
           >
             <div>
-              <div className="card-header" style={{ marginBottom: '8px' }}>
+              <div className="card-header" style={{ marginBottom: '10px' }}>
                 <span
                   style={{
-                    fontSize: '0.74rem',
+                    fontSize: '0.76rem',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     color: 'var(--sand-gold-dark)',
-                    letterSpacing: '0.04em'
+                    letterSpacing: '0.06em'
                   }}
                 >
                   {proc.category}
@@ -474,20 +504,21 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
                 <Badge status={proc.service} type="service" />
               </div>
 
-              <h3 className="card-title font-serif" style={{ fontSize: '1.25rem', marginBottom: '8px' }}>
+              <h3 className="card-title font-serif" style={{ fontSize: '1.35rem', marginBottom: '8px' }}>
                 {proc.title}
               </h3>
 
               <p
                 style={{
-                  fontSize: '0.84rem',
+                  fontSize: '0.9rem',
                   color: 'var(--text-secondary)',
-                  lineHeight: 1.45,
-                  marginBottom: '18px',
+                  lineHeight: 1.5,
+                  marginBottom: '20px',
                   display: '-webkit-box',
                   WebkitLineClamp: 3,
                   WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  fontWeight: 450
                 }}
               >
                 {proc.description}
@@ -498,15 +529,16 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
                 style={{
                   background: 'var(--cream-subtle)',
                   borderRadius: 'var(--radius-md)',
-                  padding: '10px 14px',
+                  padding: '11px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '0.78rem',
-                  color: 'var(--text-secondary)'
+                  gap: '10px',
+                  fontSize: '0.84rem',
+                  color: 'var(--text-secondary)',
+                  fontWeight: 500
                 }}
               >
-                <ListOrdered size={15} color="var(--green-primary)" />
+                <ListOrdered size={16} color="var(--green-primary)" />
                 <span>
                   Estruturado em <strong>{proc.steps.length} etapas padronizadas</strong>
                 </span>
@@ -519,22 +551,22 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                paddingTop: '14px',
+                paddingTop: '16px',
                 borderTop: '1px solid var(--cream-border-subtle)',
-                marginTop: '16px'
+                marginTop: '18px'
               }}
             >
               <span
                 style={{
-                  fontSize: '0.84rem',
-                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  fontWeight: 650,
                   color: 'var(--green-primary)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '6px'
                 }}
               >
-                Abrir SOP <ArrowRight size={14} />
+                Abrir SOP <ArrowRight size={15} />
               </span>
 
               <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
@@ -544,7 +576,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
                   onClick={(e) => handleOpenEdit(proc, e)}
                   title="Editar processo"
                 >
-                  <Edit2 size={14} />
+                  <Edit2 size={15} />
                 </button>
                 <button
                   className="sidebar-collapse-btn"
@@ -555,7 +587,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
                   }}
                   title="Excluir processo"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={15} />
                 </button>
               </div>
             </div>
@@ -626,7 +658,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
             <label className="form-label">Descrição Geral</label>
             <textarea
               className="form-textarea"
-              rows={2}
+              rows={3}
               placeholder="Explique o propósito deste SOP e como ele se encaixa na entrega da Alicerce..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -637,7 +669,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
           {/* Form Steps */}
           <div style={{ marginTop: '20px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--sand-gold-dark)' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--sand-gold-dark)' }}>
                 Etapas Operacionais ({formData.steps.length})
               </span>
               <button
@@ -650,22 +682,22 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '260px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '280px', overflowY: 'auto' }}>
               {formData.steps.map((st, i) => (
                 <div
                   key={i}
                   style={{
-                    padding: '12px',
+                    padding: '14px',
                     borderRadius: 'var(--radius-md)',
                     background: 'var(--cream-subtle)',
                     border: '1px solid var(--cream-border)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '6px'
+                    gap: '8px'
                   }}
                 >
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--sand-gold-dark)', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--sand-gold-dark)', fontSize: '0.95rem' }}>
                       {st.stepNumber}
                     </span>
                     <input
@@ -678,7 +710,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
                         newSteps[i].title = e.target.value;
                         setFormData({ ...formData, steps: newSteps });
                       }}
-                      style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+                      style={{ height: '38px', fontSize: '0.9rem' }}
                     />
                     <button
                       type="button"
@@ -702,7 +734,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
                       newSteps[i].description = e.target.value;
                       setFormData({ ...formData, steps: newSteps });
                     }}
-                    style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                    style={{ height: '38px', fontSize: '0.85rem' }}
                   />
                 </div>
               ))}
