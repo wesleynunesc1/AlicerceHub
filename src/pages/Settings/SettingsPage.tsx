@@ -8,12 +8,15 @@ export const SettingsPage: React.FC = () => {
   const { showToast } = useToast();
   const [showResetDialog, setShowResetDialog] = useState(false);
 
-  const handleResetData = () => {
-    db.resetToDefaults();
-    showToast('Dados restaurados para o padrão de demonstração!', 'success');
+  const handleSyncData = () => {
+    localStorage.removeItem('alicerce_clients');
+    localStorage.removeItem('alicerce_projects');
+    localStorage.removeItem('alicerce_processes');
+    localStorage.removeItem('alicerce_materials');
+    showToast('Cache local atualizado. Sincronizando com o Supabase...', 'success');
     setTimeout(() => {
       window.location.reload();
-    }, 800);
+    }, 600);
   };
 
   const handleExportData = () => {
@@ -40,10 +43,10 @@ export const SettingsPage: React.FC = () => {
     <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div>
         <h1 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)' }}>
-          Configurações Básicas
+          Configurações do Sistema
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-          Gerenciamento da central operacional e persistência de dados.
+          Gerenciamento da central operacional, integridade e persistência de dados.
         </p>
       </div>
 
@@ -52,21 +55,21 @@ export const SettingsPage: React.FC = () => {
         <div className="card-header">
           <div>
             <h3 className="card-title font-serif" style={{ fontSize: '1.25rem' }}>
-              Alicerce OS • Versão do Sistema
+              Alicerce OS • Status do Ambiente
             </h3>
-            <p className="card-subtitle">Ambiente operacional interno</p>
+            <p className="card-subtitle">Infraestrutura e persistência de dados</p>
           </div>
           <span
             style={{
               fontSize: '0.76rem',
               fontWeight: 700,
-              background: 'var(--green-tint)',
-              color: 'var(--green-primary)',
+              background: 'var(--status-active-bg)',
+              color: 'var(--status-active-text)',
               padding: '4px 10px',
               borderRadius: 'var(--radius-full)'
             }}
           >
-            v1.0.0 (MVP Estável)
+            Conectado ao Supabase
           </span>
         </div>
 
@@ -76,8 +79,12 @@ export const SettingsPage: React.FC = () => {
             <strong style={{ color: 'var(--text-primary)' }}>Agência Alicerce</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--cream-border-subtle)' }}>
-            <span>Arquitetura de Dados</span>
-            <strong style={{ color: 'var(--text-primary)' }}>LocalStorage + Indexed Cache</strong>
+            <span>Banco de Dados</span>
+            <strong style={{ color: 'var(--text-primary)' }}>Supabase PostgreSQL (bgitssazeyfqbqajqojk)</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--cream-border-subtle)' }}>
+            <span>Segurança & Permissões</span>
+            <strong style={{ color: 'var(--text-primary)' }}>Row Level Security (RLS) Ativo</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--cream-border-subtle)' }}>
             <span>Status da Operação</span>
@@ -91,9 +98,9 @@ export const SettingsPage: React.FC = () => {
         <div className="card-header">
           <div>
             <h3 className="card-title font-serif" style={{ fontSize: '1.25rem' }}>
-              Gestão de Dados & Backup
+              Gestão de Dados & Sincronização
             </h3>
-            <p className="card-subtitle">Exportação e restauração dos cadastros</p>
+            <p className="card-subtitle">Exportação e recarregamento da base</p>
           </div>
           <Database size={20} color="var(--green-primary)" />
         </div>
@@ -114,7 +121,7 @@ export const SettingsPage: React.FC = () => {
                 Exportar Backup Completo
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Baixe um arquivo JSON com todos os clientes, projetos, processos e materiais.
+                Baixe um arquivo JSON com o snapshot de clientes, projetos, processos e materiais.
               </div>
             </div>
             <button className="btn btn-secondary btn-sm" onClick={handleExportData} style={{ gap: '6px' }}>
@@ -128,25 +135,25 @@ export const SettingsPage: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '16px',
-              background: '#FFF7F7',
-              border: '1px solid #FED7D7',
+              background: 'var(--cream-subtle)',
+              border: '1px solid var(--cream-border)',
               borderRadius: 'var(--radius-md)'
             }}
           >
             <div>
-              <div style={{ fontWeight: 600, fontSize: '0.92rem', color: '#9B2C2C' }}>
-                Restaurar Dados de Demonstração
+              <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                Forçar Sincronização com Supabase
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#742A2A' }}>
-                Restaura o banco de dados para os dados padrão da Alicerce com clientes e projetos de exemplo.
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Limpa os caches temporários do navegador e recarrega os dados diretamente do PostgreSQL remoto.
               </div>
             </div>
             <button
-              className="btn btn-danger btn-sm"
+              className="btn btn-secondary btn-sm"
               onClick={() => setShowResetDialog(true)}
               style={{ gap: '6px' }}
             >
-              <RefreshCw size={14} /> Restaurar Padrão
+              <RefreshCw size={14} /> Sincronizar Agora
             </button>
           </div>
         </div>
@@ -155,10 +162,10 @@ export const SettingsPage: React.FC = () => {
       <ConfirmDialog
         isOpen={showResetDialog}
         onClose={() => setShowResetDialog(false)}
-        onConfirm={handleResetData}
-        title="Restaurar Dados de Demonstração"
-        message="Tem certeza que deseja restaurar os dados padrão? Todas as alterações personalizadas feitas nesta sessão serão substituídas pelos dados de exemplo da Alicerce."
-        confirmLabel="Sim, Restaurar"
+        onConfirm={handleSyncData}
+        title="Sincronizar com o Banco de Dados"
+        message="Deseja atualizar os caches locais do navegador? O sistema irá recarregar as informações atualizadas diretamente do Supabase."
+        confirmLabel="Sim, Sincronizar"
       />
     </div>
   );
