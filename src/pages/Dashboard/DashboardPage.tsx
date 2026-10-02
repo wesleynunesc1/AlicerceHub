@@ -6,10 +6,10 @@ import {
   Calendar,
   ArrowUpRight,
   Sparkles,
+  ArrowRight,
   TrendingUp,
   FolderOpen,
-  GitMerge,
-  ArrowRight
+  GitMerge
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { Badge } from '../../components/Common/Badge';
@@ -36,7 +36,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const inProgressProjectsCount = projects.filter((p) => p.status === 'Em produção').length;
   const waitingClientProjectsCount = projects.filter((p) => p.status === 'Aguardando cliente').length;
 
-  // Upcoming deliveries sorted chronologically
   const upcomingDeliveries = [...projects]
     .filter((p) => p.status !== 'Finalizado')
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -62,25 +61,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      {/* Editorial Header Section */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+      {/* 1. Área de Boas-vindas com Composição Institucional */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px'
+          gap: '6px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
               fontSize: '0.76rem',
               fontWeight: 700,
               textTransform: 'uppercase',
-              letterSpacing: '0.12em',
+              letterSpacing: '0.14em',
               color: 'var(--sand-gold-dark)',
               background: 'var(--sand-gold-tint)',
-              padding: '4px 12px',
+              padding: '3px 12px',
               borderRadius: 'var(--radius-full)'
             }}
           >
@@ -101,67 +100,201 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           {getGreeting()}, {firstName}.
         </h1>
 
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 450, maxWidth: '680px' }}>
-          Aqui está uma visão geral da operação da Alicerce.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 450, maxWidth: '640px' }}>
+          Aqui está o panorama da operação da Alicerce.
         </p>
       </div>
 
-      {/* 4 Metric Cards with Subtle Trends and Clear Hierarchy */}
-      <div className="metrics-grid">
-        <div className="metric-card" onClick={() => onNavigate('clients')} style={{ cursor: 'pointer' }}>
-          <div className="metric-info">
-            <span className="metric-label">Clientes Ativos</span>
-            <span className="metric-value">{activeClientsCount}</span>
-            <span className="metric-subtext">
-              <TrendingUp size={13} /> +20% vs mês anterior
-            </span>
-          </div>
-          <div className="metric-icon-wrap">
-            <Users size={24} />
-          </div>
-        </div>
+      {/* 2. Bloco Composto de Operação (Não 4 caixas idênticas e isoladas) */}
+      <div
+        className="card"
+        style={{
+          padding: '0',
+          overflow: 'hidden',
+          background: 'var(--cream-card)',
+          border: '1px solid var(--cream-border)',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))'
+          }}
+          className="metric-composite-grid"
+        >
+          {/* Hero Indicator: Clientes Ativos */}
+          <div
+            onClick={() => onNavigate('clients')}
+            style={{
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              background: 'linear-gradient(180deg, rgba(18, 53, 43, 0.02) 0%, transparent 100%)',
+              borderRight: '1px solid var(--cream-border-subtle)',
+              position: 'relative'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                Clientes Ativos
+              </span>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'var(--green-tint)',
+                  color: 'var(--green-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Users size={18} />
+              </div>
+            </div>
 
-        <div className="metric-card" onClick={() => onNavigate('projects')} style={{ cursor: 'pointer' }}>
-          <div className="metric-info">
-            <span className="metric-label">Em Andamento</span>
-            <span className="metric-value">{inProgressProjectsCount}</span>
-            <span className="metric-subtext" style={{ color: 'var(--status-prog-text)' }}>
-              Em produção ativa
-            </span>
+            <div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+                {activeClientsCount}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--status-active-text)', fontWeight: 650, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <TrendingUp size={13} /> +20% carteira ativa
+              </div>
+            </div>
           </div>
-          <div className="metric-icon-wrap" style={{ background: 'var(--status-prog-bg)', color: 'var(--status-prog-text)' }}>
-            <Briefcase size={24} />
-          </div>
-        </div>
 
-        <div className="metric-card" onClick={() => onNavigate('projects')} style={{ cursor: 'pointer' }}>
-          <div className="metric-info">
-            <span className="metric-label">Aguardando Cliente</span>
-            <span className="metric-value">{waitingClientProjectsCount}</span>
-            <span className="metric-subtext" style={{ color: 'var(--status-wait-text)' }}>
-              Revisão de aprovação
-            </span>
-          </div>
-          <div className="metric-icon-wrap" style={{ background: 'var(--status-wait-bg)', color: 'var(--status-wait-text)' }}>
-            <Clock size={24} />
-          </div>
-        </div>
+          {/* Indicator: Projetos em Andamento */}
+          <div
+            onClick={() => onNavigate('projects')}
+            style={{
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              borderRight: '1px solid var(--cream-border-subtle)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                Em Produção
+              </span>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'var(--status-prog-bg)',
+                  color: 'var(--status-prog-text)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Briefcase size={18} />
+              </div>
+            </div>
 
-        <div className="metric-card" onClick={() => onNavigate('projects')} style={{ cursor: 'pointer' }}>
-          <div className="metric-info">
-            <span className="metric-label">Entregas Próximas</span>
-            <span className="metric-value">{upcomingCount}</span>
-            <span className="metric-subtext" style={{ color: 'var(--green-primary)' }}>
-              Próximos 15 dias
-            </span>
+            <div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+                {inProgressProjectsCount}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--status-prog-text)', fontWeight: 600, marginTop: '8px' }}>
+                Em execução pela equipe
+              </div>
+            </div>
           </div>
-          <div className="metric-icon-wrap" style={{ background: 'var(--status-active-bg)', color: 'var(--status-active-text)' }}>
-            <Calendar size={24} />
+
+          {/* Indicator: Aguardando Cliente */}
+          <div
+            onClick={() => onNavigate('projects')}
+            style={{
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              borderRight: '1px solid var(--cream-border-subtle)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                Aguardando Cliente
+              </span>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'var(--status-wait-bg)',
+                  color: 'var(--status-wait-text)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Clock size={18} />
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+                {waitingClientProjectsCount}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--status-wait-text)', fontWeight: 600, marginTop: '8px' }}>
+                Aguardando aprovação
+              </div>
+            </div>
+          </div>
+
+          {/* Indicator: Entregas Próximas */}
+          <div
+            onClick={() => onNavigate('projects')}
+            style={{
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                Entregas Próximas
+              </span>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'var(--status-active-bg)',
+                  color: 'var(--status-active-text)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Calendar size={18} />
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+                {upcomingCount}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--green-primary)', fontWeight: 600, marginTop: '8px' }}>
+                Próximos 15 dias
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Recent Projects + Side Panel (Upcoming Deliveries & Activities) */}
+      {/* 3. Main Composition: Recent Projects & Side Panel */}
       <div
         style={{
           display: 'grid',
@@ -170,7 +303,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           alignItems: 'start'
         }}
       >
-        {/* Left Column: Recent Projects Table */}
+        {/* Left Column: Projetos Recentes (Desktop Table + Mobile Cards) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', gridColumn: 'span 2' }}>
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div
@@ -198,7 +331,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            <div className="table-responsive" style={{ border: 'none', borderRadius: '0' }}>
+            {/* Desktop Table View */}
+            <div className="desktop-table-container">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -239,6 +373,48 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card Behavior (Requested in Prompt) */}
+            <div className="mobile-cards-container" style={{ padding: '16px' }}>
+              {recentProjects.map((proj) => (
+                <div
+                  key={proj.id}
+                  onClick={() => onNavigate('projects', proj.id)}
+                  style={{
+                    padding: '16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--cream-border)',
+                    background: 'var(--cream-subtle)',
+                    marginBottom: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                        {proj.clientName}
+                      </div>
+                      <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {proj.name}
+                      </div>
+                    </div>
+                    <Badge status={proj.status} />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--cream-border-subtle)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <span>Entrega: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong></span>
+                    <span>Resp: <strong style={{ color: 'var(--text-primary)' }}>{proj.responsible}</strong></span>
+                  </div>
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ width: '100%', marginTop: '12px', justifyContent: 'center' }}
+                  >
+                    Abrir projeto
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Brand Center & Metodologia Banner */}
@@ -247,7 +423,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             style={{
               background: 'linear-gradient(135deg, #0B221B 0%, #12352B 100%)',
               color: '#FAF8F5',
-              padding: '34px 36px',
+              padding: '36px',
               border: '1px solid var(--sand-gold-dark)',
               boxShadow: 'var(--shadow-md)'
             }}
@@ -279,11 +455,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 </div>
                 <h4
                   className="font-serif"
-                  style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}
+                  style={{ fontSize: '1.8rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}
                 >
                   A estrutura por trás da nossa operação.
                 </h4>
-                <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.95rem', maxWidth: '560px', lineHeight: 1.55 }}>
+                <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.96rem', maxWidth: '580px', lineHeight: 1.6 }}>
                   Acesse os manuais de identidade da marca Alicerce, paleta cromática com cópia de HEX e os procedimentos operacionais (SOPs) de cada serviço.
                 </p>
               </div>
@@ -315,7 +491,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
         {/* Right Column: Upcoming Deliveries & Recent Activities */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          {/* Próximas Entregas (Vertical Clean Timeline) */}
+          {/* Próximas Entregas (Vertical Timeline) */}
           <div className="card">
             <div className="card-header" style={{ marginBottom: '18px' }}>
               <div>
@@ -336,13 +512,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                     className="delivery-item"
                     onClick={() => onNavigate('projects', proj.id)}
                   >
-                    {/* Left date badge */}
                     <div className="delivery-date-badge">
                       <span className="delivery-date-day">{day}</span>
                       <span className="delivery-date-month">{month}</span>
                     </div>
 
-                    {/* Middle info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
@@ -372,7 +546,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                       </div>
                     </div>
 
-                    {/* Right status */}
                     <Badge status={proj.status} />
                   </div>
                 );

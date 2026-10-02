@@ -28,7 +28,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     setTimeout(() => {
-      // Allow admin credentials or valid email format
       if (email.includes('@')) {
         db.setAuthSession({ isAuthenticated: true, email });
         onLoginSuccess();
@@ -56,240 +55,240 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--cream-bg)',
-        padding: '24px',
-        position: 'relative'
-      }}
-    >
-      {/* Background subtle luxury watermark */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '380px',
-          background: 'radial-gradient(ellipse at 50% -20%, #12352B 0%, #0B221B 65%, transparent 100%)',
-          opacity: 0.15,
-          pointerEvents: 'none'
-        }}
-      />
+    <div className="login-screen-wrapper">
+      {/* Left/Top Architectural Brand Area */}
+      <div className="login-brand-panel">
+        {/* Discreet decorative lines */}
+        <div className="login-decorative-grid" />
 
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '440px',
-          background: 'var(--cream-card)',
-          border: '1px solid var(--cream-border)',
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: 'var(--shadow-lg)',
-          padding: '40px 36px',
-          position: 'relative',
-          zIndex: 10
-        }}
-      >
-        {/* Brand Logo & Presentation */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              padding: '6px',
-              borderRadius: '16px',
-              background: 'var(--green-deep)',
-              border: '1px solid var(--sand-gold)',
-              boxShadow: '0 8px 24px rgba(11, 34, 27, 0.25)',
-              marginBottom: '20px'
-            }}
-          >
+        <div className="login-brand-content">
+          <div className="login-logo-badge">
             <img
               src="/Ab.png"
               alt="Logo Oficial Alicerce"
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '10px',
-                objectFit: 'cover'
-              }}
+              className="login-official-logo"
             />
           </div>
 
-          <h1
-            className="font-serif"
-            style={{
-              fontSize: '1.9rem',
-              fontWeight: 700,
-              color: 'var(--green-deep)',
-              letterSpacing: '-0.02em',
-              marginBottom: '8px'
-            }}
-          >
-            Bem-vindo ao Alicerce OS
-          </h1>
+          <div style={{ marginTop: '28px' }}>
+            <span
+              style={{
+                fontSize: '0.78rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.18em',
+                color: 'var(--sand-gold)',
+                fontWeight: 700
+              }}
+            >
+              Central Operacional Interna
+            </span>
 
-          <p
-            style={{
-              fontSize: '0.92rem',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.4,
-              maxWidth: '320px',
-              margin: '0 auto'
-            }}
-          >
-            A estrutura por trás da nossa operação.
-          </p>
+            <h1
+              className="font-serif"
+              style={{
+                fontSize: '2.8rem',
+                fontWeight: 700,
+                color: '#ffffff',
+                lineHeight: 1.15,
+                marginTop: '10px',
+                marginBottom: '16px',
+                letterSpacing: '-0.02em'
+              }}
+            >
+              Alicerce OS
+            </h1>
+
+            <p
+              style={{
+                fontSize: '1.1rem',
+                color: 'rgba(255, 255, 255, 0.85)',
+                lineHeight: 1.6,
+                maxWidth: '440px',
+                fontWeight: 450
+              }}
+            >
+              A estrutura por trás da nossa operação. Gestão de clientes, projetos, processos e autoridade de marca.
+            </p>
+          </div>
+
+          {/* Institutional Quote */}
+          <div className="login-manifesto-quote">
+            <div style={{ fontStyle: 'italic', color: 'var(--sand-gold-light)', fontSize: '0.95rem', lineHeight: 1.5 }}>
+              "A Alicerce estrutura marcas, presença, aquisição e comunicação para negócios que querem crescer com base."
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.5)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+              Alicerce — A estrutura do seu negócio.
+            </div>
+          </div>
         </div>
+      </div>
 
-        {error && (
+      {/* Right/Bottom Interactive Access Form */}
+      <div className="login-form-panel">
+        <div className="login-form-card">
+          <div style={{ marginBottom: '28px' }}>
+            <h2
+              className="font-serif"
+              style={{
+                fontSize: '2.1rem',
+                fontWeight: 700,
+                color: 'var(--green-deep)',
+                letterSpacing: '-0.015em',
+                marginBottom: '6px'
+              }}
+            >
+              Acesse sua conta
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.96rem', fontWeight: 450 }}>
+              Insira suas credenciais corporativas para entrar na central.
+            </p>
+          </div>
+
+          {error && (
+            <div
+              style={{
+                background: '#FEF2F2',
+                border: '1px solid #FECACA',
+                color: '#DC2626',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.9rem',
+                marginBottom: '22px',
+                fontWeight: 500
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            {/* Email input */}
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label className="form-label" htmlFor="login-email">
+                E-mail corporativo
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Mail
+                  size={18}
+                  color="var(--text-muted)"
+                  style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+                />
+                <input
+                  id="login-email"
+                  type="email"
+                  className="form-input"
+                  style={{ paddingLeft: '44px', fontSize: '16px' }}
+                  placeholder="seu.email@alicerce.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password input */}
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label" htmlFor="login-password">
+                Senha de acesso
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock
+                  size={18}
+                  color="var(--text-muted)"
+                  style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+                />
+                <input
+                  id="login-password"
+                  type="password"
+                  className="form-input"
+                  style={{ paddingLeft: '44px', fontSize: '16px' }}
+                  placeholder="••••••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Remember me & Forgot Password */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '28px',
+                fontSize: '0.88rem'
+              }}
+            >
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--green-primary)' }}
+                />
+                Manter conectado
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(true)}
+                style={{
+                  color: 'var(--green-primary)',
+                  fontWeight: 650,
+                  fontSize: '0.88rem'
+                }}
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%', height: '48px', fontSize: '1rem', gap: '10px' }}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Autenticando...' : 'Entrar no Sistema'}
+              {!isLoading && <ArrowRight size={18} />}
+            </button>
+          </form>
+
+          {/* Demo helper */}
           <div
             style={{
-              background: '#FEF2F2',
-              border: '1px solid #FECACA',
-              color: '#DC2626',
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '0.85rem',
-              marginBottom: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
+              marginTop: '32px',
+              paddingTop: '24px',
+              borderTop: '1px solid var(--cream-border)',
+              textAlign: 'center'
             }}
           >
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          {/* Email input */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="login-email">
-              E-mail corporativo
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Mail
-                size={18}
-                color="var(--text-muted)"
-                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
-              />
-              <input
-                id="login-email"
-                type="email"
-                className="form-input"
-                style={{ paddingLeft: '40px' }}
-                placeholder="seu.email@alicerce.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+            <div
+              style={{
+                fontSize: '0.82rem',
+                color: 'var(--text-muted)',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontWeight: 500
+              }}
+            >
+              <ShieldCheck size={15} color="var(--sand-gold-dark)" />
+              Ambiente Restrito à Equipe Alicerce
             </div>
-          </div>
-
-          {/* Password input */}
-          <div className="form-group" style={{ marginBottom: '14px' }}>
-            <label className="form-label" htmlFor="login-password">
-              Senha
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Lock
-                size={18}
-                color="var(--text-muted)"
-                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
-              />
-              <input
-                id="login-password"
-                type="password"
-                className="form-input"
-                style={{ paddingLeft: '40px' }}
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Remember me & Forgot Password */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '24px',
-              fontSize: '0.82rem'
-            }}
-          >
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ accentColor: 'var(--green-primary)' }}
-              />
-              Manter conectado
-            </label>
 
             <button
               type="button"
-              onClick={() => setShowForgotModal(true)}
-              style={{
-                color: 'var(--green-primary)',
-                fontWeight: 600,
-                fontSize: '0.82rem'
-              }}
+              className="btn btn-secondary btn-sm"
+              onClick={handleFillDemo}
+              style={{ width: '100%', padding: '10px 14px', fontSize: '0.84rem' }}
             >
-              Esqueci minha senha
+              Preencher credenciais de demonstração (Admin)
             </button>
           </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '13px', fontSize: '0.95rem', gap: '10px' }}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Autenticando...' : 'Entrar no Sistema'}
-            {!isLoading && <ArrowRight size={18} />}
-          </button>
-        </form>
-
-        {/* Demo Fast Helper */}
-        <div
-          style={{
-            marginTop: '28px',
-            paddingTop: '20px',
-            borderTop: '1px solid var(--cream-border)',
-            textAlign: 'center'
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.78rem',
-              color: 'var(--text-muted)',
-              marginBottom: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
-          >
-            <ShieldCheck size={14} color="var(--sand-gold)" />
-            Acesso Restrito à Equipe Alicerce
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={handleFillDemo}
-            style={{ width: '100%', fontSize: '0.78rem', padding: '8px' }}
-          >
-            Preencher credenciais de demonstração (Admin)
-          </button>
         </div>
       </div>
 
@@ -298,7 +297,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         <div className="modal-overlay" onClick={() => setShowForgotModal(false)}>
           <div
             className="modal-content"
-            style={{ maxWidth: '440px' }}
+            style={{ maxWidth: '460px' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
@@ -306,16 +305,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
             <div className="modal-body">
               {forgotSent ? (
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <CheckCircle2 size={42} color="var(--sand-gold)" style={{ marginBottom: '12px' }} />
-                  <h4 style={{ marginBottom: '6px' }}>Instruções Enviadas!</h4>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-                    Verifique sua caixa de entrada no e-mail <strong>{forgotEmail}</strong> com o link seguro de redefinição.
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <CheckCircle2 size={46} color="var(--sand-gold)" style={{ marginBottom: '14px' }} />
+                  <h4 style={{ marginBottom: '8px', fontSize: '1.2rem' }}>Instruções Enviadas!</h4>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem', lineHeight: 1.5 }}>
+                    Verifique sua caixa de entrada no e-mail <strong>{forgotEmail}</strong> com o link seguro para restaurar seu acesso.
                   </p>
                 </div>
               ) : (
                 <form onSubmit={handleForgotSubmit}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '16px' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '18px', lineHeight: 1.5 }}>
                     Informe seu e-mail corporativo cadastrado na Alicerce. Enviaremos um link temporário para restauração de acesso.
                   </p>
                   <div className="form-group">
@@ -323,13 +322,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     <input
                       type="email"
                       className="form-input"
+                      style={{ fontSize: '16px' }}
                       placeholder="admin@alicerce.com"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       required
                     />
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                     <button
                       type="button"
                       className="btn btn-secondary"

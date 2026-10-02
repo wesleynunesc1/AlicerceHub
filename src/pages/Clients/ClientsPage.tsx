@@ -317,102 +317,180 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       )}
 
       {/* Table View (Desktop Primary View) */}
+      {/* Table View (Desktop) / Cards (Mobile) */}
       {viewMode === 'table' && filteredClients.length > 0 && (
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Empresa</th>
-                <th>Responsável</th>
-                <th>Contato</th>
-                <th>Serviços Contratados</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map((client) => (
-                <tr
-                  key={client.id}
-                  onClick={() => setViewingClient(client)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div
-                        style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '8px',
-                          background: 'var(--green-deep)',
-                          color: 'var(--sand-gold)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700,
-                          fontSize: '1rem',
-                          flexShrink: 0
-                        }}
-                      >
-                        {client.companyName.charAt(0)}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
-                          {client.companyName}
+        <>
+          <div className="desktop-table-container">
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Empresa</th>
+                    <th>Responsável</th>
+                    <th>Contato</th>
+                    <th>Serviços Contratados</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredClients.map((client) => (
+                    <tr
+                      key={client.id}
+                      onClick={() => setViewingClient(client)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              background: 'var(--green-deep)',
+                              color: 'var(--sand-gold)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: '1rem',
+                              flexShrink: 0
+                            }}
+                          >
+                            {client.companyName.charAt(0)}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
+                              {client.companyName}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                              {client.segment}
+                            </div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
-                          {client.segment}
+                      </td>
+                      <td style={{ fontWeight: 550, color: 'var(--text-primary)' }}>
+                        {client.contactName}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)', fontWeight: 500 }}>{client.email}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>{client.phone}</div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxWidth: '280px' }}>
+                          {client.services.slice(0, 3).map((s) => (
+                            <Badge key={s} status={s} type="service" />
+                          ))}
+                          {client.services.length > 3 && (
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', alignSelf: 'center', fontWeight: 600 }}>
+                              +{client.services.length - 3}
+                            </span>
+                          )}
                         </div>
+                      </td>
+                      <td>
+                        <Badge status={client.status} />
+                      </td>
+                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button
+                            className="sidebar-collapse-btn"
+                            style={{ color: 'var(--text-secondary)' }}
+                            onClick={() => handleOpenEdit(client)}
+                            title="Editar cliente"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            className="sidebar-collapse-btn"
+                            style={{ color: '#dc2626' }}
+                            onClick={() => setClientToDelete(client)}
+                            title="Excluir cliente"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Auto-Cards for Clients */}
+          <div className="mobile-cards-container">
+            {filteredClients.map((client) => (
+              <div
+                key={client.id}
+                className="mobile-item-card"
+                onClick={() => setViewingClient(client)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="mobile-item-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '6px',
+                        background: 'var(--green-deep)',
+                        color: 'var(--sand-gold)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.95rem'
+                      }}
+                    >
+                      {client.companyName.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="mobile-item-title">{client.companyName}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        {client.segment}
                       </div>
                     </div>
-                  </td>
-                  <td style={{ fontWeight: 550, color: 'var(--text-primary)' }}>
-                    {client.contactName}
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)', fontWeight: 500 }}>{client.email}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>{client.phone}</div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxWidth: '280px' }}>
-                      {client.services.slice(0, 3).map((s) => (
+                  </div>
+                  <Badge status={client.status} />
+                </div>
+
+                <div className="mobile-item-meta">
+                  <div className="mobile-item-row">
+                    <span className="mobile-item-label">Responsável</span>
+                    <span className="mobile-item-val">{client.contactName}</span>
+                  </div>
+                  <div className="mobile-item-row">
+                    <span className="mobile-item-label">Contato</span>
+                    <span className="mobile-item-val">{client.phone || client.email}</span>
+                  </div>
+                  <div className="mobile-item-row" style={{ alignItems: 'flex-start' }}>
+                    <span className="mobile-item-label" style={{ marginTop: '4px' }}>Serviços</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'flex-end', maxWidth: '70%' }}>
+                      {client.services.slice(0, 2).map((s) => (
                         <Badge key={s} status={s} type="service" />
                       ))}
-                      {client.services.length > 3 && (
-                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', alignSelf: 'center', fontWeight: 600 }}>
-                          +{client.services.length - 3}
+                      {client.services.length > 2 && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          +{client.services.length - 2}
                         </span>
                       )}
                     </div>
-                  </td>
-                  <td>
-                    <Badge status={client.status} />
-                  </td>
-                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'inline-flex', gap: '6px' }}>
-                      <button
-                        className="sidebar-collapse-btn"
-                        style={{ color: 'var(--text-secondary)' }}
-                        onClick={() => handleOpenEdit(client)}
-                        title="Editar cliente"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        className="sidebar-collapse-btn"
-                        style={{ color: '#dc2626' }}
-                        onClick={() => setClientToDelete(client)}
-                        title="Excluir cliente"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+
+                <div className="mobile-item-actions">
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    Ver detalhes do cliente
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Grid View (Mobile / Card Alternative) */}

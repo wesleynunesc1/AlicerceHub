@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Mobile Backdrop Overlay */}
       <div
         className={`sidebar-overlay ${isMobileOpen ? 'mobile-open' : ''}`}
         onClick={onCloseMobile}
@@ -106,8 +106,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="sidebar-collapse-btn"
               onClick={onCloseMobile}
               title="Fechar menu"
+              style={{ width: '36px', height: '36px' }}
             >
-              <X size={18} />
+              <X size={20} />
             </button>
           )}
         </div>
@@ -135,6 +136,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Separator & Footer Navigation */}
         <div className="sidebar-footer">
+          {/* Institutional Editorial Note (Requested in prompt) */}
+          {!isCollapsed && (
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(197, 168, 128, 0.2)',
+                marginBottom: '10px'
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '0.86rem',
+                  fontStyle: 'italic',
+                  color: 'var(--sand-gold-light)',
+                  lineHeight: 1.35,
+                  display: 'block'
+                }}
+              >
+                "Estrutura para negócios que querem crescer."
+              </span>
+            </div>
+          )}
+
           <div className="sidebar-divider" />
 
           <button

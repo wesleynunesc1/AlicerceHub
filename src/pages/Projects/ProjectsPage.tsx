@@ -365,77 +365,131 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         </div>
       )}
 
-      {/* Table View */}
+      {/* Table View (Desktop) / Cards (Mobile) */}
       {viewMode === 'table' && filteredProjects.length > 0 && (
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Projeto</th>
-                <th>Cliente</th>
-                <th>Serviço</th>
-                <th>Responsável</th>
-                <th>Prazo</th>
-                <th>Progresso</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProjects.map((proj) => (
-                <tr
-                  key={proj.id}
-                  onClick={() => setActiveProject(proj)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>{proj.name}</td>
-                  <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{proj.clientName}</td>
-                  <td>
+        <>
+          <div className="desktop-table-container">
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Projeto</th>
+                    <th>Cliente</th>
+                    <th>Serviço</th>
+                    <th>Responsável</th>
+                    <th>Prazo</th>
+                    <th>Progresso</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProjects.map((proj) => (
+                    <tr
+                      key={proj.id}
+                      onClick={() => setActiveProject(proj)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>{proj.name}</td>
+                      <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{proj.clientName}</td>
+                      <td>
+                        <Badge status={proj.service} type="service" />
+                      </td>
+                      <td style={{ fontWeight: 500 }}>{proj.responsible}</td>
+                      <td style={{ whiteSpace: 'nowrap', fontWeight: 550 }}>
+                        {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td style={{ minWidth: '130px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className="progress-bar-container" style={{ width: '85px', height: '7px' }}>
+                            <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
+                          </div>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--green-primary)' }}>{proj.progress}%</span>
+                        </div>
+                      </td>
+                      <td>
+                        <Badge status={proj.status} />
+                      </td>
+                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button
+                            className="sidebar-collapse-btn"
+                            style={{ color: 'var(--text-secondary)' }}
+                            onClick={(e) => handleOpenEdit(proj, e)}
+                            title="Editar projeto"
+                          >
+                            <Edit size={15} />
+                          </button>
+                          <button
+                            className="sidebar-collapse-btn"
+                            style={{ color: '#dc2626' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProjectToDelete(proj);
+                            }}
+                            title="Excluir projeto"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Auto-Cards (No wide tables on mobile) */}
+          <div className="mobile-cards-container">
+            {filteredProjects.map((proj) => (
+              <div
+                key={proj.id}
+                className="mobile-item-card"
+                onClick={() => setActiveProject(proj)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="mobile-item-header">
+                  <div>
+                    <div className="mobile-item-title">{proj.clientName}</div>
+                    <div style={{ fontSize: '0.94rem', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 600 }}>
+                      {proj.name}
+                    </div>
+                  </div>
+                  <Badge status={proj.status} />
+                </div>
+
+                <div className="mobile-item-meta">
+                  <div className="mobile-item-row">
+                    <span className="mobile-item-label">Serviço</span>
                     <Badge status={proj.service} type="service" />
-                  </td>
-                  <td style={{ fontWeight: 500 }}>{proj.responsible}</td>
-                  <td style={{ whiteSpace: 'nowrap', fontWeight: 550 }}>
-                    {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td style={{ minWidth: '130px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div className="progress-bar-container" style={{ width: '85px', height: '7px' }}>
-                        <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
-                      </div>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--green-primary)' }}>{proj.progress}%</span>
-                    </div>
-                  </td>
-                  <td>
-                    <Badge status={proj.status} />
-                  </td>
-                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'inline-flex', gap: '6px' }}>
-                      <button
-                        className="sidebar-collapse-btn"
-                        style={{ color: 'var(--text-secondary)' }}
-                        onClick={(e) => handleOpenEdit(proj, e)}
-                        title="Editar projeto"
-                      >
-                        <Edit size={15} />
-                      </button>
-                      <button
-                        className="sidebar-collapse-btn"
-                        style={{ color: '#dc2626' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProjectToDelete(proj);
-                        }}
-                        title="Excluir projeto"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                  <div className="mobile-item-row">
+                    <span className="mobile-item-label">Responsável</span>
+                    <span className="mobile-item-val">{proj.responsible}</span>
+                  </div>
+                  <div className="mobile-item-row">
+                    <span className="mobile-item-label">Entrega</span>
+                    <span className="mobile-item-val">{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <div className="mobile-item-row">
+                    <span className="mobile-item-label">Progresso</span>
+                    <span className="mobile-item-val" style={{ color: 'var(--green-primary)' }}>{proj.progress}%</span>
+                  </div>
+                </div>
+
+                <div className="mobile-item-actions">
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    Abrir projeto
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Grid View */}
