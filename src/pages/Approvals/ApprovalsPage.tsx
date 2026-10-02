@@ -10,22 +10,39 @@ import {
   Search,
   Filter,
   History,
-  FileCheck
+  FileCheck,
+  Send,
+  AlertTriangle
 } from 'lucide-react';
 import { ApprovalItem, ApprovalStatus, Project, Client } from '../../types';
 import { phase2Service } from '../../services/phase2';
 import { projectsService } from '../../services/projects';
 import { clientsService } from '../../services/clients';
+import { dashboardService } from '../../services/dashboard';
 import { Modal } from '../../components/Common/Modal';
 import { useToast } from '../../components/Common/Toast';
+import { NavTab } from '../../components/Layout/Sidebar';
 
-export const ApprovalsPage: React.FC = () => {
+interface ApprovalsPageProps {
+  initialFilter?: string;
+  onNavigate?: (tab: NavTab, params?: any) => void;
+}
+
+export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
+  initialFilter,
+  onNavigate
+}) => {
   const { showToast } = useToast();
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Todos' | ApprovalStatus>('Todos');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | ApprovalStatus>(() => {
+    if (initialFilter?.toLowerCase() === 'aguardando') {
+      return 'Aguardando aprovação';
+    }
+    return 'Todos';
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
@@ -50,14 +67,17 @@ export const ApprovalsPage: React.FC = () => {
       projectsService.getProjects(),
       clientsService.getClients()
     ]);
-    setApprovals(apprs);
-    setProjects(projs);
-    setClients(cls);
+    setApprovals(apprs || []);
+    setProjects(projs || []);
+    setClients(cls || []);
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+    if (initialFilter?.toLowerCase() === 'aguardando') {
+      setStatusFilter('Aguardando aprovação');
+    }
+  }, [initialFilter]);
 
   const handleOpenCreate = () => {
     setFormData({
@@ -80,7 +100,7 @@ export const ApprovalsPage: React.FC = () => {
     const selectedCl = clients.find((c) => c.id === formData.clientId);
     const selectedPr = projects.find((p) => p.id === formData.projectId);
 
-    await phase2Service.saveApproval({
+    const saved = await phase2Service.saveApproval({
       title: formData.title,
       clientId: formData.clientId,
       clientName: selectedCl?.companyName || 'Cliente',
@@ -94,6 +114,13 @@ export const ApprovalsPage: React.FC = () => {
       status: 'Aguardando aprovação'
     });
 
+    await dashboardService.logActivity(
+      'Item Enviado para Aprovação',
+      'approval',
+      saved.id,
+      `Material "${saved.title}" enviado para aprovação do cliente "${saved.clientName}".`
+    );
+
     showToast('Item enviado para aprovação com sucesso.', 'success');
     setIsModalOpen(false);
     loadData();
@@ -106,28 +133,46 @@ export const ApprovalsPage: React.FC = () => {
     setIsActionModalOpen(true);
   };
 
+  // Regra do Prompt: "Ao aprovar: Registrar quem aprovou, data, comentário. Ao solicitar alteração: Criar automaticamente tarefa: Realizar ajustes vinculada ao projeto"
   const handleSaveAction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedApproval) return;
 
-    const newHistory = [
-      ...(selectedApproval.history || []),
-      {
-        date: new Date().toISOString(),
+    if (actionStatus === 'Alterações solicitadas') {
+      await phase2Service.requestApprovalChanges(
+        selectedApproval.id,
+        actionFeedback || 'Ajustes solicitados no material enviado',
+        selectedApproval.responsible
+      );
+      showToast('Alterações solicitadas! Tarefa "Realizar ajustes" gerada automaticamente no projeto.', 'info');
+    } else {
+      const newHistory = [
+        ...(selectedApproval.history || []),
+        {
+          date: new Date().toISOString(),
+          status: actionStatus,
+          user: 'Wesley Nunes',
+          feedback: actionFeedback || `Status alterado para ${actionStatus}`
+        }
+      ];
+
+      await phase2Service.saveApproval({
+        id: selectedApproval.id,
         status: actionStatus,
-        user: 'Wesley Nunes',
-        feedback: actionFeedback || 'Atualização de status'
-      }
-    ];
+        feedback: actionFeedback,
+        history: newHistory
+      });
 
-    await phase2Service.saveApproval({
-      id: selectedApproval.id,
-      status: actionStatus,
-      feedback: actionFeedback,
-      history: newHistory
-    });
+      await dashboardService.logActivity(
+        'Decisão de Aprovação',
+        'approval',
+        selectedApproval.id,
+        `Item "${selectedApproval.title}" marcado como "${actionStatus}" por Wesley Nunes.`
+      );
 
-    showToast(`Status atualizado para "${actionStatus}".`, 'success');
+      showToast(`Status atualizado para "${actionStatus}".`, 'success');
+    }
+
     setIsActionModalOpen(false);
     loadData();
   };
@@ -161,12 +206,12 @@ export const ApprovalsPage: React.FC = () => {
     }
   };
 
-  const filteredApprovals = approvals.filter((a) => {
+  const filteredApprovals = approvals.filter((item) => {
     const matchesSearch =
-      a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.type.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'Todos' || a.status === statusFilter;
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.projectName && item.projectName.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesStatus = statusFilter === 'Todos' || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -179,212 +224,248 @@ export const ApprovalsPage: React.FC = () => {
             Aprovações
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', margin: 0, fontWeight: 450 }}>
-            Fluxo de validação de criativos, copys, páginas e entregas da agência.
+            Fluxo de validação de criativos, roteiros, páginas e entregáveis com clientes.
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '8px' }}>
-          <Plus size={18} /> Novo Item para Aprovação
+        <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '6px' }}>
+          <Plus size={16} /> Nova Solicitação
         </button>
       </div>
 
-      {/* Filtros e Busca */}
-      <div
-        className="card"
-        style={{
-          padding: '16px 20px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px'
-        }}
-      >
-        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-          <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+      {/* Filtros */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ position: 'relative', minWidth: '280px', flex: 1, maxWidth: '420px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
             className="form-input"
-            style={{ paddingLeft: '40px', borderRadius: 'var(--radius-full)' }}
-            placeholder="Pesquisar por material, cliente ou tipo..."
+            placeholder="Buscar por peça, cliente ou projeto..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ paddingLeft: '36px' }}
           />
         </div>
 
         <select
-          className="form-input"
-          style={{ width: 'auto', paddingRight: '32px' }}
+          className="form-select"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as any)}
+          style={{ minWidth: '180px' }}
         >
-          <option value="Todos">Todos os status</option>
-          <option value="Aguardando aprovação">Aguardando aprovação</option>
+          <option value="Todos">Todos os Status</option>
+          <option value="Aguardando aprovação">Aguardando Aprovação</option>
+          <option value="Alterações solicitadas">Alterações Solicitadas</option>
           <option value="Aprovado">Aprovado</option>
-          <option value="Alterações solicitadas">Alterações solicitadas</option>
           <option value="Rejeitado">Rejeitado</option>
         </select>
       </div>
 
-      {/* Tabela de Aprovações */}
-      {filteredApprovals.length === 0 ? (
-        <div
-          className="card"
-          style={{ padding: '64px 32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-        >
-          <FileCheck size={32} color="var(--sand-gold-dark)" style={{ marginBottom: '14px' }} />
-          <h3 className="font-serif" style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>
-            Nenhum item pendente de aprovação.
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem', margin: '0 0 20px', maxWidth: '420px' }}>
-            Envie criativos, layouts e documentos para controle de aprovação interna ou pelo cliente.
-          </p>
-          <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '8px' }}>
-            <Plus size={16} /> Enviar primeiro item
-          </button>
-        </div>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="desktop-table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Item / Material</th>
-                  <th>Cliente</th>
-                  <th>Tipo</th>
-                  <th>Responsável</th>
-                  <th>Data</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredApprovals.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
-                        {item.title}
-                      </div>
-                      {item.notes && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {item.notes}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      {item.clientName} {item.projectName && `• ${item.projectName}`}
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 650, background: 'var(--cream-subtle)', padding: '2px 8px', borderRadius: '4px' }}>
-                        {item.type}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{item.responsible}</td>
-                    <td style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                      {new Date(item.date).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td>{getStatusBadge(item.status)}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '8px' }}>
-                        {item.externalLink && (
-                          <a
-                            href={item.externalLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '4px 8px' }}
-                            title="Abrir arquivo ou link externo"
-                          >
-                            <ExternalLink size={14} />
-                          </a>
-                        )}
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleOpenAction(item)}
-                          style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-                        >
-                          Avaliar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Grid de Aprovações */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+        {filteredApprovals.map((item) => (
+          <div
+            key={item.id}
+            className="card"
+            style={{
+              padding: '22px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '16px'
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--sand-gold-dark)' }}>
+                  {item.clientName}
+                </span>
+                {getStatusBadge(item.status)}
+              </div>
+
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--green-deep)', margin: '0 0 6px' }}>
+                {item.title}
+              </h3>
+
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '10px' }}>
+                {item.projectName && <div>Projeto: {item.projectName}</div>}
+                <div>Tipo: {item.type} • Responsável: {item.responsible}</div>
+              </div>
+
+              {item.notes && (
+                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '0 0 12px' }}>
+                  {item.notes}
+                </p>
+              )}
+
+              {item.feedback && (
+                <div style={{ padding: '10px 12px', background: 'var(--cream-subtle)', borderRadius: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderLeft: '3px solid var(--sand-gold-dark)' }}>
+                  <strong>Último Feedback:</strong> {item.feedback}
+                </div>
+              )}
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--cream-border-subtle)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                {item.externalLink && (
+                  <a
+                    href={item.externalLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.78rem', gap: '4px' }}
+                  >
+                    <ExternalLink size={12} /> Acessar Link
+                  </a>
+                )}
+              </div>
+
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => handleOpenAction(item)}
+                style={{ fontSize: '0.78rem' }}
+              >
+                Gerenciar Status
+              </button>
+            </div>
           </div>
-        </div>
+        ))}
+
+        {filteredApprovals.length === 0 && (
+          <div className="card" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center' }}>
+            <FileCheck size={32} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.94rem', margin: 0 }}>
+              Nenhum item de aprovação encontrado com os filtros selecionados.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Ação / Mudança de Status com Automação de Tarefa de Ajuste */}
+      {selectedApproval && (
+        <Modal
+          isOpen={isActionModalOpen}
+          onClose={() => setIsActionModalOpen(false)}
+          title={`Aprovação: ${selectedApproval.title}`}
+          subtitle={`Cliente: ${selectedApproval.clientName}`}
+          maxWidth="560px"
+        >
+          <form onSubmit={handleSaveAction} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label className="form-label">Atualizar Decisão / Status</label>
+              <select
+                className="form-select"
+                value={actionStatus}
+                onChange={(e) => setActionStatus(e.target.value as ApprovalStatus)}
+              >
+                <option value="Aprovado">Aprovado pelo Cliente</option>
+                <option value="Alterações solicitadas">Alterações Solicitadas (Gera Tarefa de Ajuste)</option>
+                <option value="Aguardando aprovação">Aguardando Retorno do Cliente</option>
+                <option value="Rejeitado">Rejeitado</option>
+              </select>
+            </div>
+
+            {actionStatus === 'Alterações solicitadas' && (
+              <div style={{ padding: '12px', background: '#FEF5E7', borderRadius: '8px', border: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem', color: '#8F5310' }}>
+                <AlertTriangle size={16} />
+                <span>Uma tarefa <strong>"Realizar ajustes"</strong> será criada automaticamente para a equipe no projeto.</span>
+              </div>
+            )}
+
+            <div>
+              <label className="form-label">Feedback / Observações do Cliente</label>
+              <textarea
+                className="form-textarea"
+                rows={3}
+                placeholder="Insira os comentários, pontuações ou alterações exigidas..."
+                value={actionFeedback}
+                onChange={(e) => setActionFeedback(e.target.value)}
+                required={actionStatus === 'Alterações solicitadas'}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsActionModalOpen(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Salvar Decisão
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
-      {/* Modal Criar Item de Aprovação */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Novo Material para Validação">
+      {/* Modal: Nova Solicitação de Aprovação */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Enviar Item para Aprovação"
+        subtitle="Submeta criativos, páginas ou copys para aprovação do cliente"
+        maxWidth="640px"
+      >
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="form-group">
-            <label className="form-label">Título do Item *</label>
+          <div>
+            <label className="form-label">Título da Peça / Material *</label>
             <input
               type="text"
               className="form-input"
-              placeholder="Ex: Criativos de Lançamento (Carrossel 1 a 4)"
+              placeholder="Ex: Roteiro de Vídeo Hook-Story-Offer"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            <div className="form-group">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
               <label className="form-label">Cliente *</label>
               <select
-                className="form-input"
+                className="form-select"
                 value={formData.clientId}
                 onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
                 required
               >
-                <option value="">Selecione o cliente</option>
+                <option value="">Selecione o cliente...</option>
                 {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.companyName}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.companyName}</option>
                 ))}
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Projeto Relacionado</label>
+            <div>
+              <label className="form-label">Projeto Vinculado</label>
               <select
-                className="form-input"
+                className="form-select"
                 value={formData.projectId}
                 onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
               >
-                <option value="">Nenhum / Geral</option>
+                <option value="">Nenhum projeto específico</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            <div className="form-group">
-              <label className="form-label">Tipo de Material</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label className="form-label">Tipo de Peça</label>
               <select
-                className="form-input"
+                className="form-select"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
               >
-                <option value="Criativo">Criativo / Design</option>
-                <option value="Legenda">Legenda / Copy</option>
-                <option value="Vídeo">Vídeo / Reel</option>
+                <option value="Criativo">Criativo / Anúncio</option>
+                <option value="Landing Page">Landing Page</option>
+                <option value="Roteiro">Roteiro / Copy</option>
                 <option value="Identidade Visual">Identidade Visual</option>
-                <option value="Site / Landing Page">Site / Landing Page</option>
-                <option value="Proposta">Proposta Comercial</option>
-                <option value="Documento">Documento Estratégico</option>
+                <option value="Outro">Outro</option>
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Responsável</label>
+            <div>
+              <label className="form-label">Responsável Interno</label>
               <input
                 type="text"
                 className="form-input"
@@ -394,29 +475,29 @@ export const ApprovalsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Link Externo / Pré-visualização</label>
+          <div>
+            <label className="form-label">Link Externo para Prévia (Figma / Drive / URL)</label>
             <input
-              type="url"
+              type="text"
               className="form-input"
-              placeholder="https://figma.com/..., https://drive.google.com/..."
+              placeholder="https://..."
               value={formData.externalLink}
               onChange={(e) => setFormData({ ...formData, externalLink: e.target.value })}
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Observações / Contexto</label>
+          <div>
+            <label className="form-label">Orientações para o Cliente</label>
             <textarea
-              className="form-input"
-              rows={2}
-              placeholder="Instruções para o revisor, pontos de atenção..."
+              className="form-textarea"
+              rows={3}
+              placeholder="Pontos de atenção para validação..."
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </button>
@@ -426,72 +507,6 @@ export const ApprovalsPage: React.FC = () => {
           </div>
         </form>
       </Modal>
-
-      {/* Modal de Avaliação / Feedback */}
-      {selectedApproval && (
-        <Modal
-          isOpen={isActionModalOpen}
-          onClose={() => setIsActionModalOpen(false)}
-          title={`Avaliação: ${selectedApproval.title}`}
-        >
-          <form onSubmit={handleSaveAction} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            <div className="form-group">
-              <label className="form-label">Decisão de Aprovação *</label>
-              <select
-                className="form-input"
-                value={actionStatus}
-                onChange={(e) => setActionStatus(e.target.value as ApprovalStatus)}
-                required
-              >
-                <option value="Aguardando aprovação">Aguardando aprovação</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Alterações solicitadas">Alterações solicitadas</option>
-                <option value="Rejeitado">Rejeitado</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Parecer / Feedback para a equipe</label>
-              <textarea
-                className="form-input"
-                rows={3}
-                placeholder="Detalhes dos ajustes solicitados ou aprovação..."
-                value={actionFeedback}
-                onChange={(e) => setActionFeedback(e.target.value)}
-              />
-            </div>
-
-            {/* Histórico da Aprovação */}
-            {selectedApproval.history && selectedApproval.history.length > 0 && (
-              <div style={{ marginTop: '10px', paddingTop: '14px', borderTop: '1px solid var(--cream-border)' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
-                  Histórico de Pareceres
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                  {selectedApproval.history.map((h, i) => (
-                    <div key={i} style={{ fontSize: '0.82rem', padding: '8px 10px', background: 'var(--cream-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 650 }}>
-                        <span>{h.user} • {h.status}</span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>{new Date(h.date).toLocaleDateString('pt-BR')}</span>
-                      </div>
-                      {h.feedback && <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>{h.feedback}</div>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setIsActionModalOpen(false)}>
-                Cancelar
-              </button>
-              <button type="submit" className="btn btn-primary">
-                Confirmar Decisão
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
     </div>
   );
 };

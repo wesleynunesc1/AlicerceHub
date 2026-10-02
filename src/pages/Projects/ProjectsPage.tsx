@@ -11,30 +11,48 @@ import {
 import { db } from '../../services/db';
 import { projectsService } from '../../services/projects';
 import { clientsService } from '../../services/clients';
-import { Project, ProjectStatus, ServiceType, Client } from '../../types';
+import { phase2Service } from '../../services/phase2';
+import { Project, ProjectStatus, ServiceType, Client, ProjectTemplate } from '../../types';
 import { Badge } from '../../components/Common/Badge';
 import { Modal } from '../../components/Common/Modal';
 import { ConfirmDialog } from '../../components/Common/ConfirmDialog';
 import { useToast } from '../../components/Common/Toast';
 import { ProjectDetailPage } from './ProjectDetailPage';
+import { NavTab } from '../../components/Layout/Sidebar';
 
 interface ProjectsPageProps {
   selectedProjectId?: string;
   onClearSelectedProject?: () => void;
+  initialFilter?: string;
+  action?: string;
+  clientId?: string;
+  clientName?: string;
+  service?: string;
+  onNavigate?: (tab: NavTab, params?: any) => void;
 }
 
 export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   selectedProjectId,
-  onClearSelectedProject
+  onClearSelectedProject,
+  initialFilter,
+  action,
+  clientId,
+  clientName,
+  service,
+  onNavigate
 }) => {
   const { showToast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Todos' | ProjectStatus>('Todos');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | ProjectStatus>(() => {
+    if (initialFilter?.toLowerCase() === 'ativo') return 'Em produção';
+    return 'Todos';
+  });
   const [serviceFilter, setServiceFilter] = useState<'Todos' | ServiceType>('Todos');
   const [clientFilter, setClientFilter] = useState<'Todos' | string>('Todos');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
@@ -47,8 +65,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   // Form State
   const [formData, setFormData] = useState({
     name: '',
-    clientId: '',
-    service: 'Meta Ads' as ServiceType,
+    clientId: clientId || '',
+    templateId: '',
+    service: ((service as ServiceType) || 'Meta Ads') as ServiceType,
     responsible: 'Wesley Nunes',
     startDate: new Date().toISOString().split('T')[0],
     dueDate: '',
@@ -58,18 +77,20 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
   const loadData = async () => {
     try {
-      const [remoteProjects, remoteClients] = await Promise.all([
+      const [remoteProjects, remoteClients, tmpls] = await Promise.all([
         projectsService.getProjects(),
         clientsService.getClients(),
+        phase2Service.getTemplates()
       ]);
 
       setProjects(remoteProjects || []);
+      setClients(remoteClients || []);
+      setTemplates(tmpls || []);
+
       if (selectedProjectId && remoteProjects) {
         const found = remoteProjects.find((p) => p.id === selectedProjectId);
         if (found) setActiveProject(found);
       }
-
-      setClients(remoteClients || []);
     } catch {
       setProjects([]);
       setClients([]);
@@ -78,10 +99,13 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedProjectId]);
+    if (action === 'create') {
+      handleOpenCreate();
+    }
+  }, [selectedProjectId, action, clientId, service]);
 
   const handleOpenCreate = () => {
-    if (clients.length === 0) {
+    if (clients.length === 0 && !clientId) {
       showToast('Cadastre um cliente primeiro para criar um projeto.', 'error');
       return;
     }
@@ -91,8 +115,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
     setFormData({
       name: '',
-      clientId: clients[0].id,
-      service: 'Meta Ads',
+      clientId: clientId || clients[0]?.id || '',
+      templateId: '',
+      service: ((service as ServiceType) || 'Meta Ads') as ServiceType,
       responsible: 'Wesley Nunes',
       startDate: new Date().toISOString().split('T')[0],
       dueDate: in30Days.toISOString().split('T')[0],
@@ -108,6 +133,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     setFormData({
       name: proj.name,
       clientId: proj.clientId,
+      templateId: '',
       service: proj.service,
       responsible: proj.responsible,
       startDate: proj.startDate,
@@ -126,12 +152,33 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     }
 
     const selectedClient = clients.find((c) => c.id === formData.clientId);
-    const clientName = selectedClient ? selectedClient.companyName : 'Cliente';
+    const resolvedClientName = clientName || (selectedClient ? selectedClient.companyName : 'Cliente');
+
+    // Automação: Se selecionou template, instancia projeto + tarefas automáticas
+    if (!editingProject && formData.templateId) {
+      try {
+        const created = await phase2Service.instantiateProjectFromTemplate(formData.templateId, {
+          name: formData.name,
+          clientId: formData.clientId,
+          clientName: resolvedClientName,
+          responsible: formData.responsible,
+          startDate: formData.startDate,
+          dueDate: formData.dueDate
+        });
+        showToast('Projeto criado com template e tarefas automáticas geradas!', 'success');
+        await loadData();
+        setIsModalOpen(false);
+        setActiveProject(created);
+        return;
+      } catch (err: any) {
+        showToast(err?.message || 'Erro ao instanciar template.', 'error');
+      }
+    }
 
     const payload = {
       name: formData.name,
       clientId: formData.clientId,
-      clientName,
+      clientName: resolvedClientName,
       service: formData.service,
       responsible: formData.responsible,
       startDate: formData.startDate,
@@ -194,6 +241,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         onUpdate={(updated) => {
           setActiveProject(updated);
           loadData();
+        }}
+        onNavigateToTask={(taskId) => {
+          if (onNavigate) onNavigate('tasks', { id: taskId });
+        }}
+        onNavigateToMaterial={(matId) => {
+          if (onNavigate) onNavigate('materials', { id: matId });
         }}
       />
     );
@@ -678,6 +731,39 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               required
             />
           </div>
+
+          {!editingProject && (
+            <div className="form-group">
+              <label className="form-label">Template Operacional (Opcional)</label>
+              <select
+                className="form-select"
+                value={formData.templateId}
+                onChange={(e) => {
+                  const tid = e.target.value;
+                  const selectedTmpl = templates.find((t) => t.id === tid);
+                  const selCl = clients.find((c) => c.id === formData.clientId);
+                  setFormData({
+                    ...formData,
+                    templateId: tid,
+                    service: selectedTmpl ? (selectedTmpl.service as ServiceType) : formData.service,
+                    name: formData.name || (selectedTmpl ? `${selectedTmpl.title} — ${selCl?.companyName || 'Cliente'}` : '')
+                  });
+                }}
+              >
+                <option value="">Nenhum (Criar projeto em branco)</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title} ({t.service})
+                  </option>
+                ))}
+              </select>
+              {formData.templateId && (
+                <p style={{ fontSize: '0.78rem', color: 'var(--sand-gold-dark)', margin: '4px 0 0', fontWeight: 600 }}>
+                  Ao usar este template, as etapas e tarefas padrão da equipe serão criadas automaticamente.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="form-row">
             <div className="form-group">

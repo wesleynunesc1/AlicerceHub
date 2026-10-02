@@ -89,9 +89,14 @@ export const dashboardService = {
   },
 
   /**
-   * Registra um novo log de atividade no Supabase
+   * Registra um novo log de atividade no Supabase e cache local
    */
-  async logActivity(action: string, entityType: 'client' | 'project' | 'material' | 'process', entityId: string, description: string) {
+  async logActivity(
+    action: string,
+    entityType: 'client' | 'project' | 'material' | 'process' | 'lead' | 'proposal' | 'contract' | 'financial' | 'task' | 'approval' | 'template' | 'content' | string,
+    entityId: string,
+    description: string
+  ) {
     try {
       await supabase.from('activity_logs').insert({
         action,

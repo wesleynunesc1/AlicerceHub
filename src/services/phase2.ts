@@ -1,4 +1,7 @@
 import { supabase } from './supabase';
+import { clientsService } from './clients';
+import { projectsService } from './projects';
+import { dashboardService } from './dashboard';
 import {
   Task,
   CalendarEvent,
@@ -1104,6 +1107,304 @@ class Phase2Service {
         delayedTasksCount: delayedTasks
       };
     });
+  }
+
+  // ==========================================
+  // 14. AUTOMAÇÕES OPERACIONAIS END-TO-END
+  // ==========================================
+
+  /**
+   * Converte Lead em Cliente com Onboarding inicial automático
+   */
+  async convertLeadToClient(lead: Lead, clientOverride?: Partial<Client>): Promise<Client> {
+    const companyName = clientOverride?.companyName || lead.company;
+    const contactName = clientOverride?.contactName || lead.name;
+    const email = clientOverride?.email || lead.email || `contato@${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com.br`;
+    const phone = clientOverride?.phone || lead.phone || lead.whatsapp || '';
+
+    const newClientData = {
+      companyName,
+      contactName,
+      email,
+      phone,
+      segment: clientOverride?.segment || 'Comercial',
+      services: clientOverride?.services || [lead.serviceOfInterest],
+      startDate: new Date().toISOString().split('T')[0],
+      status: 'Onboarding' as const,
+      accountManager: lead.responsible || 'Wesley Nunes',
+      notes: `Convertido de lead comercial em ${new Date().toLocaleDateString('pt-BR')}. Notas de qualificação: ${lead.notes || 'Nenhuma'}`
+    };
+
+    let createdClient = await clientsService.createClient(newClientData);
+    if (!createdClient) {
+      createdClient = {
+        id: `cli-${Date.now()}`,
+        ...newClientData,
+        createdAt: new Date().toISOString()
+      };
+    }
+
+    // Atualiza status do Lead para Fechado e salva referência
+    await this.saveLead({
+      id: lead.id,
+      status: 'Fechado',
+      convertedClientId: createdClient.id
+    });
+
+    // Inicializa checklist de Onboarding
+    this.getOnboarding(createdClient.id);
+
+    // Registra atividade no sistema
+    await dashboardService.logActivity(
+      'Conversão de Lead',
+      'lead',
+      lead.id,
+      `Lead "${lead.company}" convertido em cliente. Onboarding iniciado automaticamente.`
+    );
+
+    return createdClient;
+  }
+
+  /**
+   * Registra contato com Lead e opcionalmente cria Follow-up na Agenda
+   */
+  async recordLeadContact(
+    leadId: string,
+    contact: {
+      type: string;
+      date: string;
+      notes: string;
+      result: string;
+      nextStep?: string;
+      followUpDate?: string;
+    }
+  ): Promise<void> {
+    const leads = await this.getLeads();
+    const targetLead = leads.find((l) => l.id === leadId);
+    if (!targetLead) return;
+
+    // Registra comentário/histórico
+    this.addComment({
+      entityType: 'lead',
+      entityId: leadId,
+      userName: 'Wesley Nunes',
+      content: `[Contato: ${contact.type}] ${contact.notes} | Resultado: ${contact.result}${contact.nextStep ? ` | Próximo passo: ${contact.nextStep}` : ''}`
+    });
+
+    // Se informada data de follow-up, atualiza lead e cria evento na agenda
+    if (contact.followUpDate) {
+      await this.saveLead({
+        id: leadId,
+        nextFollowUp: contact.followUpDate
+      });
+
+      await this.saveEvent({
+        title: `Follow-up: ${targetLead.company}`,
+        date: contact.followUpDate,
+        time: '14:00',
+        type: 'Reunião',
+        responsible: targetLead.responsible,
+        notes: contact.nextStep || 'Follow-up de alinhamento comercial'
+      });
+    }
+
+    await dashboardService.logActivity(
+      'Contato Registrado',
+      'lead',
+      leadId,
+      `Contato via ${contact.type} registrado com o lead "${targetLead.company}".`
+    );
+  }
+
+  /**
+   * Ativa contrato e gera lançamentos financeiros automáticos
+   */
+  async activateContract(contractId: string): Promise<Contract> {
+    const contracts = await this.getContracts();
+    const contract = contracts.find((c) => c.id === contractId);
+    if (!contract) throw new Error('Contrato não encontrado.');
+
+    const updated = await this.saveContract({
+      id: contractId,
+      status: 'Ativo'
+    });
+
+    // Gera previsão financeira
+    const dueDate = contract.startDate || new Date().toISOString().split('T')[0];
+    const desc = contract.recurrence === 'Mensal'
+      ? `Mensalidade ${contract.service} (1ª parcela)`
+      : `Contrato ${contract.service}`;
+
+    await this.saveFinancialEntry({
+      clientId: contract.clientId,
+      clientName: contract.clientName,
+      contractId: contract.id,
+      description: desc,
+      value: contract.value,
+      dueDate,
+      status: 'Pendente'
+    });
+
+    await dashboardService.logActivity(
+      'Contrato Ativado',
+      'contract',
+      contractId,
+      `Contrato de R$ ${contract.value.toLocaleString('pt-BR')} ativado para "${contract.clientName}". Previsão financeira gerada.`
+    );
+
+    return updated;
+  }
+
+  /**
+   * Solicita alteração em aprovação e gera tarefa de ajustes automaticamente
+   */
+  async requestApprovalChanges(
+    approvalId: string,
+    feedback: string,
+    responsible?: string
+  ): Promise<{ approval: ApprovalItem; task: Task }> {
+    const approvals = await this.getApprovals();
+    const approval = approvals.find((a) => a.id === approvalId);
+    if (!approval) throw new Error('Aprovação não encontrada.');
+
+    const updatedHistory = [
+      ...(approval.history || []),
+      {
+        date: new Date().toISOString(),
+        status: 'Alterações solicitadas' as const,
+        user: 'Wesley Nunes',
+        feedback: feedback || 'Ajustes solicitados na peça/material'
+      }
+    ];
+
+    const updatedApproval = await this.saveApproval({
+      id: approvalId,
+      status: 'Alterações solicitadas',
+      feedback,
+      history: updatedHistory
+    });
+
+    // Gera tarefa de ajuste em 2 dias
+    const in2Days = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
+    const newTask = await this.saveTask({
+      title: `Realizar ajustes: ${approval.title}`,
+      description: `Alterações solicitadas: ${feedback}`,
+      projectId: approval.projectId,
+      projectName: approval.projectName,
+      clientId: approval.clientId,
+      clientName: approval.clientName,
+      responsible: responsible || approval.responsible || 'Wesley Nunes',
+      priority: 'Alta',
+      status: 'Pendente',
+      dueDate: in2Days
+    });
+
+    await dashboardService.logActivity(
+      'Ajustes Solicitados',
+      'approval',
+      approvalId,
+      `Alterações solicitadas em "${approval.title}". Tarefa de ajuste criada para ${newTask.responsible}.`
+    );
+
+    return { approval: updatedApproval, task: newTask };
+  }
+
+  /**
+   * Instancia projeto a partir de template e gera tarefas automaticamente
+   */
+  async instantiateProjectFromTemplate(
+    templateId: string,
+    data: {
+      name: string;
+      clientId: string;
+      clientName: string;
+      responsible: string;
+      startDate: string;
+      dueDate: string;
+    }
+  ): Promise<Project> {
+    const templates = await this.getTemplates();
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) throw new Error('Template operacional não encontrado.');
+
+    // Constrói estágios do projeto
+    const stages = template.steps.map((st, index) => ({
+      name: st.title,
+      completed: false,
+      completedAt: undefined,
+      orderIndex: index
+    }));
+
+    const newProject = await projectsService.createProject({
+      name: data.name,
+      clientId: data.clientId,
+      clientName: data.clientName,
+      service: template.service,
+      responsible: data.responsible,
+      startDate: data.startDate,
+      dueDate: data.dueDate,
+      description: `Projeto gerado a partir do template "${template.title}". ${template.description}`,
+      status: 'Planejamento',
+      progress: 0,
+      stages
+    });
+
+    // Gera tarefas padrão para cada etapa do template
+    let runningDate = new Date(data.startDate);
+    for (const step of template.steps) {
+      runningDate.setDate(runningDate.getDate() + (step.estimatedDays || 2));
+      const stepDueDate = runningDate.toISOString().split('T')[0];
+
+      await this.saveTask({
+        title: `${step.title}`,
+        description: step.checklist && step.checklist.length > 0 ? step.checklist.map((c) => `• ${c}`).join('\n') : '',
+        projectId: newProject.id,
+        projectName: newProject.name,
+        clientId: data.clientId,
+        clientName: data.clientName,
+        responsible: data.responsible,
+        priority: 'Média',
+        status: 'Pendente',
+        dueDate: stepDueDate <= data.dueDate ? stepDueDate : data.dueDate
+      });
+    }
+
+    await dashboardService.logActivity(
+      'Projeto Criado com Template',
+      'project',
+      newProject.id,
+      `Projeto "${data.name}" iniciado via template "${template.title}" com ${template.steps.length} tarefas automáticas.`
+    );
+
+    return newProject;
+  }
+
+  /**
+   * Conclui Onboarding do cliente e ativa cliente na operação
+   */
+  async completeOnboarding(clientId: string): Promise<boolean> {
+    const success = await clientsService.updateClient(clientId, { status: 'Ativo' });
+    await dashboardService.logActivity(
+      'Onboarding Concluído',
+      'client',
+      clientId,
+      'Checklist de onboarding concluído. Cliente ativado com sucesso.'
+    );
+    return success;
+  }
+
+  /**
+   * Conclui Offboarding do cliente e finaliza ciclo
+   */
+  async completeOffboarding(clientId: string): Promise<boolean> {
+    const success = await clientsService.updateClient(clientId, { status: 'Encerrado' });
+    await dashboardService.logActivity(
+      'Offboarding Concluído',
+      'client',
+      clientId,
+      'Checklist de offboarding concluído. Cliente encerrado formalmente.'
+    );
+    return success;
   }
 }
 

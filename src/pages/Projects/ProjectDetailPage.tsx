@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { Project, ProjectStage, ProjectStatus } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Project, ProjectStage, ProjectStatus, Task, Material, ApprovalItem, InternalComment, ActivityItem } from '../../types';
 import { db } from '../../services/db';
 import { projectsService } from '../../services/projects';
+import { phase2Service } from '../../services/phase2';
+import { materialsService } from '../../services/materials';
+import { dashboardService } from '../../services/dashboard';
 import { Badge } from '../../components/Common/Badge';
 import { useToast } from '../../components/Common/Toast';
 import {
@@ -15,26 +18,69 @@ import {
   FileText,
   Clock,
   ChevronRight,
-  Save
+  Save,
+  MessageSquare,
+  Send,
+  ExternalLink,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 
 interface ProjectDetailPageProps {
   project: Project;
   onBack: () => void;
   onUpdate: (updated: Project) => void;
+  onNavigateToTask?: (taskId: string) => void;
+  onNavigateToMaterial?: (materialId: string) => void;
 }
+
+type TabType = 'overview' | 'stages' | 'tasks' | 'materials' | 'approvals' | 'comments' | 'history';
 
 export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
   project,
   onBack,
-  onUpdate
+  onUpdate,
+  onNavigateToTask,
+  onNavigateToMaterial
 }) => {
   const { showToast } = useToast();
   const [currentProject, setCurrentProject] = useState<Project>(project);
+  const [activeTab, setActiveTab] = useState<TabType>('stages');
   const [newStageTitle, setNewStageTitle] = useState('');
   const [notes, setNotes] = useState(project.notes || '');
 
-  // Toggle stage completion
+  // Sub-entidades
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+  const [projectMaterials, setProjectMaterials] = useState<Material[]>([]);
+  const [projectApprovals, setProjectApprovals] = useState<ApprovalItem[]>([]);
+  const [comments, setComments] = useState<InternalComment[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+
+  const loadProjectRelations = async () => {
+    try {
+      const [tasks, mats, apprs, acts] = await Promise.all([
+        phase2Service.getTasks(),
+        materialsService.getMaterials(),
+        phase2Service.getApprovals(),
+        dashboardService.getRecentActivities()
+      ]);
+
+      setProjectTasks((tasks || []).filter((t) => t.projectId === currentProject.id));
+      setProjectMaterials((mats || []).filter((m) => m.projectId === currentProject.id));
+      setProjectApprovals((apprs || []).filter((a) => a.projectId === currentProject.id));
+      setComments(phase2Service.getComments('project', currentProject.id));
+      setActivities((acts || []).filter((a) => a.entity_id === currentProject.id || a.description?.toLowerCase().includes(currentProject.name.toLowerCase())));
+    } catch (e) {
+      console.warn('Erro ao carregar dados do projeto:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadProjectRelations();
+  }, [currentProject.id]);
+
+  // Toggle stage completion com recálculo automático de progresso
   const handleToggleStage = async (stageId: string) => {
     const stage = currentProject.stages.find((s) => s.id === stageId);
     const newCompleted = stage ? !stage.completed : false;
@@ -56,8 +102,14 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     onUpdate(updatedProj);
     showToast('Etapa atualizada!', 'info');
 
-    // Persiste no Supabase
+    // Persiste no Supabase e registra log de atividade
     await projectsService.toggleStep(currentProject.id, stageId, newCompleted);
+    await dashboardService.logActivity(
+      'Etapa Concluída',
+      'project',
+      currentProject.id,
+      `Etapa "${stage?.title}" do projeto "${currentProject.name}" marcada como ${newCompleted ? 'concluída' : 'pendente'}. Progresso: ${progress}%.`
+    );
   };
 
   // Add new stage
@@ -106,6 +158,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     setCurrentProject(updatedProj);
     db.saveProject(updatedProj);
     onUpdate(updatedProj);
+    showToast('Etapa removida.', 'info');
   };
 
   // Change project status
@@ -117,10 +170,32 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     setCurrentProject(updatedProj);
     db.saveProject(updatedProj);
     onUpdate(updatedProj);
-    showToast(`Status alterado para "${newStatus}"`, 'success');
+    showToast(`Status atualizado para "${newStatus}".`, 'success');
 
-    // Persiste no Supabase
     await projectsService.updateProject(currentProject.id, { status: newStatus });
+    await dashboardService.logActivity(
+      'Status do Projeto Alterado',
+      'project',
+      currentProject.id,
+      `Projeto "${currentProject.name}" alterado para "${newStatus}".`
+    );
+  };
+
+  // Add Comment
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim()) return;
+
+    const added = phase2Service.addComment({
+      entityType: 'project',
+      entityId: currentProject.id,
+      userName: 'Wesley Nunes',
+      content: newCommentText
+    });
+
+    setComments([added, ...comments]);
+    setNewCommentText('');
+    showToast('Comentário registrado no projeto.', 'success');
   };
 
   // Save notes
@@ -134,23 +209,27 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     onUpdate(updatedProj);
     showToast('Observações salvas com sucesso!', 'success');
 
-    // Persiste no Supabase
     await projectsService.updateProject(currentProject.id, { description: notes });
   };
 
   return (
-    <div style={{ maxWidth: '1050px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      {/* Breadcrumb Navigation */}
-      <div className="breadcrumb-container">
-        <span className="breadcrumb-link" onClick={onBack}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      {/* Breadcrumb Navigation com preservação de contexto */}
+      <div className="breadcrumb-container" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.86rem' }}>
+        <button
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 550 }}
+        >
           Projetos
-        </span>
-        <ChevronRight size={14} />
-        <span className="breadcrumb-link" onClick={onBack}>
+        </button>
+        <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
+        <span style={{ color: 'var(--sand-gold-dark)', fontWeight: 600 }}>
           {currentProject.clientName}
         </span>
-        <ChevronRight size={14} />
-        <span className="breadcrumb-current">{currentProject.name}</span>
+        <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
+        <span style={{ color: 'var(--green-deep)', fontWeight: 700 }}>
+          {currentProject.name}
+        </span>
       </div>
 
       {/* Main Project Header Card */}
@@ -186,7 +265,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
           {/* Quick status selector */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
             <span style={{ fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 650 }}>
-              Status da Entrega
+              Status da Operação
             </span>
             <select
               className="form-select"
@@ -203,14 +282,14 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
           </div>
         </div>
 
-        {/* Progress Bar with Subtle Styling */}
+        {/* Progress Bar com Cálculo Automático */}
         <div style={{ padding: '18px 22px', background: 'var(--cream-subtle)', borderRadius: 'var(--radius-md)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.88rem' }}>
             <span style={{ fontWeight: 700, color: 'var(--green-deep)' }}>
-              Progresso Geral das Etapas
+              Progresso Calculado das Etapas
             </span>
             <span style={{ fontWeight: 800, color: 'var(--green-primary)' }}>
-              {currentProject.progress}% Concluído ({currentProject.stages.filter(s => s.completed).length}/{currentProject.stages.length} marcos)
+              {currentProject.progress}% Concluído ({currentProject.stages.filter((s) => s.completed).length}/{currentProject.stages.length} marcos)
             </span>
           </div>
           <div className="progress-bar-container" style={{ height: '9px' }}>
@@ -218,211 +297,334 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
           </div>
         </div>
 
-        {/* Metadata columns */}
+        {/* Informações Rápidas */}
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '18px',
+            gap: '16px',
             marginTop: '24px',
             paddingTop: '20px',
-            borderTop: '1px solid var(--cream-border-subtle)',
-            fontSize: '0.9rem'
+            borderTop: '1px solid var(--cream-border-subtle)'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)' }}>
-            <User size={17} color="var(--green-primary)" />
-            <span>Responsável: <strong style={{ color: 'var(--text-primary)' }}>{currentProject.responsible}</strong></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <User size={18} color="var(--sand-gold-dark)" />
+            <div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Responsável</span>
+              <div style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--text-primary)' }}>{currentProject.responsible}</div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)' }}>
-            <Calendar size={17} color="var(--green-primary)" />
-            <span>Início: <strong style={{ color: 'var(--text-primary)' }}>{new Date(currentProject.startDate).toLocaleDateString('pt-BR')}</strong></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Calendar size={18} color="var(--sand-gold-dark)" />
+            <div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Início</span>
+              <div style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--text-primary)' }}>
+                {new Date(currentProject.startDate).toLocaleDateString('pt-BR')}
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)' }}>
-            <Clock size={17} color="var(--green-primary)" />
-            <span>Prazo: <strong style={{ color: 'var(--text-primary)' }}>{new Date(currentProject.dueDate).toLocaleDateString('pt-BR')}</strong></span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)' }}>
-            <Building2 size={17} color="var(--green-primary)" />
-            <span>Cliente: <strong style={{ color: 'var(--text-primary)' }}>{currentProject.clientName}</strong></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Clock size={18} color="var(--sand-gold-dark)" />
+            <div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Prazo Final</span>
+              <div style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--text-primary)' }}>
+                {new Date(currentProject.dueDate).toLocaleDateString('pt-BR')}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Two Columns: Checklist de Etapas & Observações/Materiais */}
+      {/* Abas Solicitadas no Prompt */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '28px',
-          alignItems: 'start'
+          display: 'flex',
+          gap: '6px',
+          borderBottom: '1px solid var(--cream-border)',
+          overflowX: 'auto',
+          paddingBottom: '2px'
         }}
       >
-        {/* Left Column: Checklist de Etapas */}
-        <div className="card" style={{ padding: '28px' }}>
-          <div className="card-header">
-            <div>
-              <h3 className="card-title font-serif" style={{ fontSize: '1.4rem' }}>
-                Checklist de Etapas
-              </h3>
-              <p className="card-subtitle">
-                Marque cada marco conforme a execução avança
-              </p>
+        {[
+          { id: 'stages', label: `Etapas (${currentProject.stages.length})` },
+          { id: 'tasks', label: `Tarefas (${projectTasks.length})` },
+          { id: 'materials', label: `Materiais (${projectMaterials.length})` },
+          { id: 'approvals', label: `Aprovações (${projectApprovals.length})` },
+          { id: 'comments', label: `Comentários (${comments.length})` },
+          { id: 'history', label: 'Histórico' }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as TabType)}
+            style={{
+              padding: '8px 14px',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === tab.id ? '2px solid var(--green-deep)' : '2px solid transparent',
+              color: activeTab === tab.id ? 'var(--green-deep)' : 'var(--text-secondary)',
+              fontWeight: activeTab === tab.id ? 700 : 500,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 1. ABA: ETAPAS */}
+      {activeTab === 'stages' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="card" style={{ padding: '24px' }}>
+            <h3 className="card-title font-serif" style={{ fontSize: '1.25rem', marginBottom: '16px' }}>
+              Checklist Operacional do Projeto
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {currentProject.stages.map((stage) => (
+                <div
+                  key={stage.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: stage.completed ? 'rgba(34, 197, 94, 0.05)' : 'var(--cream-subtle)',
+                    border: stage.completed ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid var(--cream-border-subtle)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleToggleStage(stage.id)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {stage.completed ? (
+                      <CheckSquare size={20} color="#15803D" />
+                    ) : (
+                      <Square size={20} color="var(--text-muted)" />
+                    )}
+                    <span
+                      style={{
+                        fontSize: '0.94rem',
+                        fontWeight: stage.completed ? 600 : 500,
+                        color: stage.completed ? '#15803D' : 'var(--text-primary)',
+                        textDecoration: stage.completed ? 'line-through' : 'none'
+                      }}
+                    >
+                      {stage.title}
+                    </span>
+                  </div>
+
+                  <button
+                    className="sidebar-collapse-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteStage(stage.id);
+                    }}
+                    style={{ color: '#DC2626' }}
+                    title="Excluir etapa"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
             </div>
-            <span
-              style={{
-                fontSize: '0.82rem',
-                fontWeight: 700,
-                background: 'var(--green-tint)',
-                color: 'var(--green-primary)',
-                padding: '4px 12px',
-                borderRadius: 'var(--radius-full)'
-              }}
-            >
-              {currentProject.stages.filter((s) => s.completed).length} / {currentProject.stages.length}
+
+            {/* Adicionar nova etapa */}
+            <form onSubmit={handleAddStage} style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Adicionar nova etapa personalizada ao projeto..."
+                value={newStageTitle}
+                onChange={(e) => setNewStageTitle(e.target.value)}
+              />
+              <button type="submit" className="btn btn-secondary" style={{ whiteSpace: 'nowrap', gap: '6px' }}>
+                <Plus size={16} /> Adicionar Etapa
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. ABA: TAREFAS */}
+      {activeTab === 'tasks' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+              Tarefas do Projeto
             </span>
           </div>
 
-          {/* List of Stages */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '22px' }}>
-            {currentProject.stages.map((stage) => (
-              <div
-                key={stage.id}
-                onClick={() => handleToggleStage(stage.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '13px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: stage.completed ? '1px solid var(--status-active-border)' : '1px solid var(--cream-border)',
-                  background: stage.completed ? 'var(--status-active-bg)' : 'var(--cream-subtle)',
-                  cursor: 'pointer',
-                  transition: 'all var(--transition-fast)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  {stage.completed ? (
-                    <CheckSquare size={20} color="var(--status-active-text)" />
-                  ) : (
-                    <Square size={20} color="var(--text-muted)" />
-                  )}
-                  <span
-                    style={{
-                      fontSize: '0.94rem',
-                      fontWeight: stage.completed ? 650 : 500,
-                      color: stage.completed ? 'var(--status-active-text)' : 'var(--text-primary)',
-                      textDecoration: stage.completed ? 'line-through' : 'none'
-                    }}
-                  >
-                    {stage.title}
-                  </span>
-                </div>
-
-                <button
-                  className="sidebar-collapse-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteStage(stage.id);
-                  }}
-                  style={{ color: 'var(--text-muted)' }}
-                  title="Remover etapa"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Form Add Stage */}
-          <form onSubmit={handleAddStage} style={{ display: 'flex', gap: '10px' }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Adicionar nova etapa (ex: Gravação de takes)..."
-              value={newStageTitle}
-              onChange={(e) => setNewStageTitle(e.target.value)}
-            />
-            <button type="submit" className="btn btn-primary" style={{ padding: '0 18px', height: '46px' }}>
-              <Plus size={16} /> Adicionar
-            </button>
-          </form>
-        </div>
-
-        {/* Right Column: Observações & Materiais Relacionados */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          {/* Internal Notes */}
-          <div className="card" style={{ padding: '28px' }}>
-            <div className="card-header">
-              <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.35rem' }}>
-                  Observações Internas
-                </h3>
-                <p className="card-subtitle">
-                  Diretrizes de produção e detalhes estratégicos
-                </p>
-              </div>
+          {projectTasks.length === 0 ? (
+            <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+              <CheckSquare size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                Nenhuma tarefa vinculada diretamente a este projeto.
+              </p>
             </div>
-
-            <textarea
-              className="form-textarea"
-              rows={4}
-              placeholder="Adicione notas, links de pastas de drive, feedbacks de reuniões..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              style={{ marginBottom: '14px' }}
-            />
-
-            <button className="btn btn-secondary btn-sm" onClick={handleSaveNotes} style={{ gap: '6px' }}>
-              <Save size={15} /> Salvar Observações
-            </button>
-          </div>
-
-          {/* Related Materials */}
-          <div className="card" style={{ padding: '28px' }}>
-            <div className="card-header">
-              <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.35rem' }}>
-                  Materiais Vinculados
-                </h3>
-                <p className="card-subtitle">Documentos aplicados a este serviço</p>
-              </div>
-            </div>
-
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {currentProject.relatedMaterials && currentProject.relatedMaterials.length > 0 ? (
-                currentProject.relatedMaterials.map((matTitle, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '12px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--cream-subtle)',
-                      border: '1px solid var(--cream-border)',
-                      fontSize: '0.88rem'
-                    }}
-                  >
-                    <FileText size={17} color="var(--green-primary)" />
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {matTitle}
+              {projectTasks.map((t) => (
+                <div
+                  key={t.id}
+                  className="card"
+                  style={{
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => onNavigateToTask && onNavigateToTask(t.id)}
+                >
+                  <div>
+                    <div style={{ fontWeight: 650, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
+                      {t.title}
+                    </div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      Responsável: {t.responsible} • Prazo: {new Date(t.dueDate).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
-                ))
-              ) : (
-                <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', padding: '8px 0' }}>
-                  Nenhum material vinculado diretamente.
+                  <Badge status={t.status} />
                 </div>
-              )}
+              ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. ABA: MATERIAIS */}
+      {activeTab === 'materials' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {projectMaterials.length === 0 ? (
+            <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+              <FileText size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                Nenhum material anexado a este projeto.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
+              {projectMaterials.map((m) => (
+                <div key={m.id} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontWeight: 650, color: 'var(--text-primary)' }}>{m.name}</div>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{m.category}</span>
+                  {m.externalUrl && (
+                    <a
+                      href={m.externalUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ alignSelf: 'flex-start', marginTop: '6px', fontSize: '0.76rem' }}
+                    >
+                      <ExternalLink size={12} /> Acessar Link
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. ABA: APROVAÇÕES */}
+      {activeTab === 'approvals' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {projectApprovals.length === 0 ? (
+            <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                Nenhum item em fluxo de aprovação para este projeto.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {projectApprovals.map((a) => (
+                <div key={a.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 650, fontSize: '0.94rem', color: 'var(--text-primary)' }}>{a.title}</div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Tipo: {a.type}</span>
+                  </div>
+                  <Badge status={a.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. ABA: COMENTÁRIOS */}
+      {activeTab === 'comments' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <form onSubmit={handleAddComment} className="card" style={{ padding: '16px' }}>
+            <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 650 }}>
+              Adicionar Alinhamento Interno sobre o Projeto
+            </label>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Escreva um comentário ou atualização para a equipe..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                required
+              />
+              <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap', gap: '6px' }}>
+                <Send size={14} /> Comentar
+              </button>
+            </div>
+          </form>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {comments.map((c) => (
+              <div key={c.id} className="card" style={{ padding: '14px 18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                  <strong>{c.userName}</strong>
+                  <span>{new Date(c.createdAt).toLocaleString('pt-BR')}</span>
+                </div>
+                <p style={{ margin: '6px 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                  {c.content}
+                </p>
+              </div>
+            ))}
+            {comments.length === 0 && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', textAlign: 'center', margin: '20px 0' }}>
+                Nenhum comentário registrado ainda.
+              </p>
+            )}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* 6. ABA: HISTÓRICO */}
+      {activeTab === 'history' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {activities.length === 0 ? (
+            <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                Nenhuma atividade recente registrada neste projeto.
+              </p>
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {activities.map((a) => (
+                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: '10px', borderBottom: '1px solid var(--cream-border-subtle)' }}>
+                    <div>
+                      <div style={{ fontWeight: 650, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{a.title}</div>
+                      <p style={{ color: 'var(--text-secondary)', margin: '2px 0 0', fontSize: '0.82rem' }}>{a.description}</p>
+                    </div>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{a.timestamp}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

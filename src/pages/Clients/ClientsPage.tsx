@@ -35,21 +35,34 @@ const ALL_SERVICES: ServiceType[] = [
   'Outros'
 ];
 
+import { NavTab } from '../../components/Layout/Sidebar';
+
 interface ClientsPageProps {
   onNavigateToProject?: (projectId: string) => void;
   onNavigateToMaterial?: (materialId: string) => void;
+  onNavigate?: (tab: NavTab, params?: any) => void;
   selectedClientId?: string;
+  initialFilter?: string;
+  initialSubTab?: string;
 }
 
 export const ClientsPage: React.FC<ClientsPageProps> = ({
   onNavigateToProject,
   onNavigateToMaterial,
-  selectedClientId
+  onNavigate,
+  selectedClientId,
+  initialFilter,
+  initialSubTab
 }) => {
   const { showToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Todos' | ClientStatus>('Todos');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | ClientStatus>(() => {
+    if (initialFilter && (initialFilter === 'Ativo' || initialFilter === 'Onboarding' || initialFilter === 'Pausado' || initialFilter === 'Encerrado')) {
+      return initialFilter as ClientStatus;
+    }
+    return 'Todos';
+  });
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table'); // Default to table on desktop as requested
 
   // Modal states
@@ -903,6 +916,28 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
         }}
         onNavigateToProject={onNavigateToProject}
         onNavigateToMaterial={onNavigateToMaterial}
+        onNavigateToTask={(taskId) => {
+          setViewingClient(null);
+          if (onNavigate) onNavigate('tasks', { id: taskId });
+        }}
+        onClientUpdated={loadClients}
+        onCreateProjectForClient={(c) => {
+          setViewingClient(null);
+          if (onNavigate) onNavigate('projects', { action: 'create', clientId: c.id, clientName: c.companyName });
+        }}
+        onCreateTaskForClient={(c) => {
+          setViewingClient(null);
+          if (onNavigate) onNavigate('tasks', { action: 'create', clientId: c.id, clientName: c.companyName });
+        }}
+        onCreateContractForClient={(c) => {
+          setViewingClient(null);
+          if (onNavigate) onNavigate('contracts', { action: 'create', clientId: c.id, clientName: c.companyName });
+        }}
+        onCreateMaterialForClient={(c) => {
+          setViewingClient(null);
+          if (onNavigate) onNavigate('materials', { action: 'create', clientId: c.id, clientName: c.companyName });
+        }}
+        initialTab={initialSubTab}
       />
 
       {/* Confirm Delete Dialog */}

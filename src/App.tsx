@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './services/db';
 import { ToastProvider, useToast } from './components/Common/Toast';
+import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { AppLayout } from './components/Layout/AppLayout';
 import { NavTab } from './components/Layout/Sidebar';
 
@@ -76,6 +77,16 @@ const pathToTab = (pathname: string): NavTab => {
   return 'dashboard';
 };
 
+const parseQueryParams = () => {
+  if (typeof window === 'undefined') return {};
+  const searchParams = new URLSearchParams(window.location.search);
+  const params: Record<string, string> = {};
+  searchParams.forEach((val, key) => {
+    params[key] = val;
+  });
+  return params;
+};
+
 const MainApp: React.FC = () => {
   const { showToast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -91,7 +102,11 @@ const MainApp: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavTab>(() => {
     return pathToTab(window.location.pathname);
   });
-  const [targetId, setTargetId] = useState<string | undefined>(undefined);
+
+  const [navParams, setNavParams] = useState<any>(() => {
+    const q = parseQueryParams();
+    return q.status || q.tipo ? { filter: q.status || q.tipo } : undefined;
+  });
 
   useEffect(() => {
     db.init();
@@ -100,7 +115,8 @@ const MainApp: React.FC = () => {
       const isCadastro = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro';
       setAuthMode(isCadastro ? 'register' : 'login');
       setCurrentTab(pathToTab(window.location.pathname));
-      setTargetId(undefined);
+      const q = parseQueryParams();
+      setNavParams(q.status || q.tipo ? { filter: q.status || q.tipo } : undefined);
     };
     window.addEventListener('popstate', handlePopState);
 
@@ -162,12 +178,18 @@ const MainApp: React.FC = () => {
     showToast('Sessão encerrada com segurança.', 'info');
   };
 
-  const handleNavigate = (tab: NavTab, id?: string) => {
+  const handleNavigate = (tab: NavTab, params?: any) => {
     setCurrentTab(tab);
-    setTargetId(id);
-    const newPath = tabToPath(tab);
-    if (window.location.pathname !== newPath) {
-      window.history.pushState(null, '', newPath);
+    const resolvedParams = typeof params === 'string' ? { id: params } : params;
+    setNavParams(resolvedParams);
+
+    const basePath = tabToPath(tab);
+    let fullPath = basePath;
+    if (resolvedParams?.filter) {
+      fullPath = `${basePath}?status=${encodeURIComponent(resolvedParams.filter)}`;
+    }
+    if (window.location.pathname + window.location.search !== fullPath) {
+      window.history.pushState(null, '', fullPath);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -199,37 +221,99 @@ const MainApp: React.FC = () => {
 
       {currentTab === 'clients' && (
         <ClientsPage
-          selectedClientId={targetId}
-          onNavigateToProject={(projId) => handleNavigate('projects', projId)}
-          onNavigateToMaterial={(matId) => handleNavigate('materials', matId)}
+          selectedClientId={navParams?.id}
+          initialFilter={navParams?.filter}
+          initialSubTab={navParams?.subTab}
+          onNavigate={handleNavigate}
+          onNavigateToProject={(projId) => handleNavigate('projects', { id: projId })}
+          onNavigateToMaterial={(matId) => handleNavigate('materials', { id: matId })}
         />
       )}
 
       {currentTab === 'projects' && (
         <ProjectsPage
-          selectedProjectId={targetId}
-          onClearSelectedProject={() => setTargetId(undefined)}
+          selectedProjectId={navParams?.id}
+          initialFilter={navParams?.filter}
+          action={navParams?.action}
+          clientId={navParams?.clientId}
+          clientName={navParams?.clientName}
+          service={navParams?.service}
+          onClearSelectedProject={() => setNavParams(undefined)}
+          onNavigate={handleNavigate}
         />
       )}
 
-      {currentTab === 'tasks' && <TasksPage />}
+      {currentTab === 'tasks' && (
+        <TasksPage
+          initialFilter={navParams?.filter}
+          initialTaskId={navParams?.id}
+          initialClientId={navParams?.clientId}
+          initialProjectId={navParams?.projectId}
+          action={navParams?.action}
+          onNavigateToProject={(projId) => handleNavigate('projects', { id: projId })}
+          onNavigateToClient={(clientId) => handleNavigate('clients', { id: clientId })}
+        />
+      )}
 
-      {currentTab === 'calendar' && <CalendarPage />}
+      {currentTab === 'calendar' && (
+        <CalendarPage
+          initialFilter={navParams?.filter}
+          onNavigate={handleNavigate}
+        />
+      )}
 
-      {currentTab === 'approvals' && <ApprovalsPage />}
+      {currentTab === 'approvals' && (
+        <ApprovalsPage
+          initialFilter={navParams?.filter}
+          onNavigate={handleNavigate}
+        />
+      )}
 
-      {currentTab === 'leads' && <LeadsPage />}
+      {currentTab === 'leads' && (
+        <LeadsPage
+          initialFilter={navParams?.filter}
+          selectedLeadId={navParams?.id}
+          onNavigate={handleNavigate}
+        />
+      )}
 
-      {currentTab === 'proposals' && <ProposalsPage />}
+      {currentTab === 'proposals' && (
+        <ProposalsPage
+          initialFilter={navParams?.filter}
+          action={navParams?.action}
+          leadId={navParams?.leadId}
+          leadName={navParams?.leadName}
+          company={navParams?.company}
+          service={navParams?.service}
+          estimatedValue={navParams?.estimatedValue}
+          onNavigate={handleNavigate}
+        />
+      )}
 
-      {currentTab === 'contracts' && <ContractsPage />}
+      {currentTab === 'contracts' && (
+        <ContractsPage
+          initialFilter={navParams?.filter}
+          action={navParams?.action}
+          clientId={navParams?.clientId}
+          clientName={navParams?.clientName}
+          service={navParams?.service}
+          value={navParams?.value}
+          onNavigate={handleNavigate}
+        />
+      )}
 
-      {currentTab === 'financial' && <FinancialPage />}
+      {currentTab === 'financial' && (
+        <FinancialPage
+          initialFilter={navParams?.filter}
+          initialEntryId={navParams?.id}
+          onNavigate={handleNavigate}
+        />
+      )}
 
       {currentTab === 'processes' && (
         <ProcessesPage
-          selectedProcessId={targetId}
-          onClearSelectedProcess={() => setTargetId(undefined)}
+          selectedProcessId={navParams?.id}
+          onClearSelectedProcess={() => setNavParams(undefined)}
         />
       )}
 
@@ -237,8 +321,8 @@ const MainApp: React.FC = () => {
 
       {currentTab === 'materials' && (
         <MaterialsPage
-          selectedMaterialId={targetId}
-          onClearSelectedMaterial={() => setTargetId(undefined)}
+          selectedMaterialId={navParams?.id}
+          onClearSelectedMaterial={() => setNavParams(undefined)}
         />
       )}
 
@@ -260,7 +344,9 @@ const MainApp: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <ToastProvider>
-      <MainApp />
+      <ErrorBoundary>
+        <MainApp />
+      </ErrorBoundary>
     </ToastProvider>
   );
 };

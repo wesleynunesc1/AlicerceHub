@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../components/Common/Modal';
 import { Badge } from '../../components/Common/Badge';
-import { Client, Project, Material, ServiceType, OnboardingCheckItem, QuickLink, InternalComment } from '../../types';
-import { db } from '../../services/db';
-import { phase2Service } from '../../services/phase2';
 import {
+  Client,
+  Project,
+  Task,
+  Material,
+  Contract,
+  FinancialEntry,
+  ApprovalItem,
+  OnboardingCheckItem,
+  QuickLink,
+  InternalComment,
+  ActivityItem
+} from '../../types';
+import { phase2Service } from '../../services/phase2';
+import { projectsService } from '../../services/projects';
+import { materialsService } from '../../services/materials';
+import { dashboardService } from '../../services/dashboard';
+import { useToast } from '../../components/Common/Toast';
+import {
+  Building2,
   Mail,
   Phone,
   FolderOpen,
@@ -15,7 +31,17 @@ import {
   Trash2,
   Send,
   MessageSquare,
-  Link as LinkIcon
+  Link as LinkIcon,
+  CheckCircle2,
+  Clock,
+  Briefcase,
+  DollarSign,
+  FileCheck2,
+  FileText,
+  AlertCircle,
+  Calendar,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 
 interface ClientDetailModalProps {
@@ -25,9 +51,27 @@ interface ClientDetailModalProps {
   onEdit: (client: Client) => void;
   onNavigateToProject?: (projectId: string) => void;
   onNavigateToMaterial?: (materialId: string) => void;
+  onNavigateToTask?: (taskId: string) => void;
+  onClientUpdated?: () => void;
+  onCreateProjectForClient?: (client: Client) => void;
+  onCreateTaskForClient?: (client: Client) => void;
+  onCreateContractForClient?: (client: Client) => void;
+  onCreateMaterialForClient?: (client: Client) => void;
+  initialTab?: string;
 }
 
-type TabType = 'overview' | 'projects' | 'materials' | 'onboarding' | 'links' | 'comments' | 'info';
+type TabType =
+  | 'overview'
+  | 'projects'
+  | 'tasks'
+  | 'materials'
+  | 'approvals'
+  | 'contracts'
+  | 'financial'
+  | 'onboarding'
+  | 'history'
+  | 'links'
+  | 'offboarding';
 
 export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   client,
@@ -35,31 +79,90 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   onClose,
   onEdit,
   onNavigateToProject,
-  onNavigateToMaterial
+  onNavigateToMaterial,
+  onNavigateToTask,
+  onClientUpdated,
+  onCreateProjectForClient,
+  onCreateTaskForClient,
+  onCreateContractForClient,
+  onCreateMaterialForClient,
+  initialTab = 'overview'
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const { showToast } = useToast();
+  const [activeTab, setActiveTab] = useState<TabType>((initialTab as TabType) || 'overview');
+
+  // Client-related entities
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [financials, setFinancials] = useState<FinancialEntry[]>([]);
   const [onboardingItems, setOnboardingItems] = useState<OnboardingCheckItem[]>([]);
   const [offboardingItems, setOffboardingItems] = useState<OnboardingCheckItem[]>([]);
   const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
   const [comments, setComments] = useState<InternalComment[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+
+  // Form states inside tabs
   const [newCommentText, setNewCommentText] = useState('');
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [newLinkCat, setNewLinkCat] = useState<QuickLink['category']>('Drive');
+  const [isActivating, setIsActivating] = useState(false);
 
   useEffect(() => {
-    if (client) {
+    if (initialTab) {
+      setActiveTab(initialTab as TabType);
+    }
+  }, [initialTab]);
+
+  const loadClientData = async () => {
+    if (!client) return;
+
+    try {
+      const [allProjs, allTasks, allMats, allApprs, allCtrs, allFins, acts] = await Promise.all([
+        projectsService.getProjects(),
+        phase2Service.getTasks(),
+        materialsService.getMaterials(),
+        phase2Service.getApprovals(),
+        phase2Service.getContracts(),
+        phase2Service.getFinancialEntries(),
+        dashboardService.getRecentActivities()
+      ]);
+
+      setProjects((allProjs || []).filter((p) => p.clientId === client.id));
+      setTasks((allTasks || []).filter((t) => t.clientId === client.id));
+      setMaterials((allMats || []).filter((m) => m.clientId === client.id));
+      setApprovals((allApprs || []).filter((a) => a.clientId === client.id));
+      setContracts((allCtrs || []).filter((c) => c.clientId === client.id));
+      setFinancials((allFins || []).filter((f) => f.clientId === client.id));
+      setActivities((acts || []).filter((a) => a.description?.toLowerCase().includes(client.companyName.toLowerCase())));
+
       setOnboardingItems(phase2Service.getOnboarding(client.id));
       setOffboardingItems(phase2Service.getOffboarding(client.id));
       setQuickLinks(phase2Service.getQuickLinks(client.id));
       setComments(phase2Service.getComments('client', client.id));
+    } catch (err) {
+      console.error('Erro ao carregar dados do cliente:', err);
     }
-  }, [client]);
+  };
+
+  useEffect(() => {
+    if (client && isOpen) {
+      loadClientData();
+    }
+  }, [client, isOpen]);
 
   if (!client) return null;
 
-  const projects = db.getProjects().filter((p) => p.clientId === client.id);
-  const materials = db.getMaterials();
+  // Onboarding progress
+  const completedOnboardingCount = onboardingItems.filter((i) => i.completed).length;
+  const onboardingProgress = Math.round((completedOnboardingCount / (onboardingItems.length || 1)) * 100);
+
+  // Offboarding progress
+  const completedOffboardingCount = offboardingItems.filter((i) => i.completed).length;
+  const offboardingProgress = Math.round((completedOffboardingCount / (offboardingItems.length || 1)) * 100);
 
   const handleToggleOnboarding = (key: string) => {
     const updated = phase2Service.toggleOnboardingItem(client.id, key, 'Wesley Nunes');
@@ -71,23 +174,52 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     setOffboardingItems(updated);
   };
 
+  const handleActivateClientFromOnboarding = async () => {
+    setIsActivating(true);
+    try {
+      await phase2Service.completeOnboarding(client.id);
+      showToast(`Cliente "${client.companyName}" ativado com sucesso na operação!`, 'success');
+      if (onClientUpdated) onClientUpdated();
+      onClose();
+    } catch {
+      showToast('Falha ao ativar cliente.', 'error');
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  const handleCloseClientFromOffboarding = async () => {
+    if (confirm(`Confirma o encerramento do contrato e offboarding de "${client.companyName}"?`)) {
+      try {
+        await phase2Service.completeOffboarding(client.id);
+        showToast(`Cliente "${client.companyName}" encerrado formalmente.`, 'info');
+        if (onClientUpdated) onClientUpdated();
+        onClose();
+      } catch {
+        showToast('Falha ao encerrar cliente.', 'error');
+      }
+    }
+  };
+
   const handleAddQuickLink = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
     const added = phase2Service.saveQuickLink({
       clientId: client.id,
       title: newLinkTitle,
-      url: newLinkUrl,
+      url: newLinkUrl.startsWith('http') ? newLinkUrl : `https://${newLinkUrl}`,
       category: newLinkCat
     });
     setQuickLinks([...quickLinks, added]);
     setNewLinkTitle('');
     setNewLinkUrl('');
+    showToast('Link rápido adicionado!', 'success');
   };
 
   const handleDeleteQuickLink = (id: string) => {
     phase2Service.deleteQuickLink(id);
     setQuickLinks(quickLinks.filter((l) => l.id !== id));
+    showToast('Link removido.', 'info');
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -101,487 +233,788 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     });
     setComments([added, ...comments]);
     setNewCommentText('');
+    showToast('Registro de histórico adicionado.', 'success');
   };
-
-  const completedOnboardingCount = onboardingItems.filter((i) => i.completed).length;
-  const onboardingProgress = Math.round((completedOnboardingCount / (onboardingItems.length || 1)) * 100);
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={client.companyName}
-      subtitle={`Segmento: ${client.segment} • Início em ${new Date(client.startDate).toLocaleDateString('pt-BR')}`}
-      maxWidth="820px"
+      subtitle={`Segmento: ${client.segment} • Início em ${new Date(client.startDate).toLocaleDateString('pt-BR')} • Gestor: ${client.accountManager}`}
+      maxWidth="980px"
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Badge status={client.status} />
+            {client.status === 'Onboarding' && (
+              <span style={{ fontSize: '0.8rem', color: 'var(--sand-gold-dark)', fontWeight: 650 }}>
+                Onboarding: {onboardingProgress}% concluído
+              </span>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-secondary" onClick={onClose}>
-              Fechar
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => onEdit(client)}>
+              Editar Cadastro
             </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                onClose();
-                onEdit(client);
-              }}
-            >
-              Editar Cliente
+            <button className="btn btn-primary btn-sm" onClick={onClose}>
+              Fechar
             </button>
           </div>
         </div>
       }
     >
-      {/* Client Quick Bar */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '16px',
-          padding: '16px',
-          background: 'var(--cream-subtle)',
-          borderRadius: 'var(--radius-md)',
-          marginBottom: '20px',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--green-deep)',
-              color: 'var(--sand-gold)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: '1.1rem'
-            }}
-          >
-            {client.companyName.charAt(0)}
-          </div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{client.contactName}</div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Responsável pelo Contrato</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Barra de Ações Rápidas do Cliente */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            background: 'var(--cream-subtle)',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--cream-border)'
+          }}
+        >
+          <span style={{ fontSize: '0.82rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+            Ações Rápidas:
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (onCreateProjectForClient) onCreateProjectForClient(client);
+              }}
+              style={{ fontSize: '0.78rem', padding: '5px 10px', gap: '4px' }}
+            >
+              <Plus size={13} /> Criar projeto
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (onCreateTaskForClient) onCreateTaskForClient(client);
+              }}
+              style={{ fontSize: '0.78rem', padding: '5px 10px', gap: '4px' }}
+            >
+              <Plus size={13} /> Criar tarefa
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (onCreateContractForClient) onCreateContractForClient(client);
+              }}
+              style={{ fontSize: '0.78rem', padding: '5px 10px', gap: '4px' }}
+            >
+              <Plus size={13} /> Adicionar contrato
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (onCreateMaterialForClient) onCreateMaterialForClient(client);
+              }}
+              style={{ fontSize: '0.78rem', padding: '5px 10px', gap: '4px' }}
+            >
+              <Plus size={13} /> Adicionar material
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '0.82rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-            <Mail size={15} color="var(--green-primary)" />
-            <span>{client.email}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-            <Phone size={15} color="var(--green-primary)" />
-            <span>{client.phone}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          borderBottom: '1px solid var(--cream-border)',
-          marginBottom: '20px',
-          gap: '4px',
-          overflowX: 'auto'
-        }}
-      >
-        {(
-          [
+        {/* Abas solicitadas no Prompt */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '6px',
+            borderBottom: '1px solid var(--cream-border)',
+            overflowX: 'auto',
+            paddingBottom: '2px'
+          }}
+        >
+          {[
             { id: 'overview', label: 'Visão Geral' },
             { id: 'projects', label: `Projetos (${projects.length})` },
+            { id: 'tasks', label: `Tarefas (${tasks.length})` },
+            { id: 'materials', label: `Materiais (${materials.length})` },
+            { id: 'approvals', label: `Aprovações (${approvals.length})` },
+            { id: 'contracts', label: `Contratos (${contracts.length})` },
+            { id: 'financial', label: `Financeiro (${financials.length})` },
             { id: 'onboarding', label: `Onboarding (${onboardingProgress}%)` },
             { id: 'links', label: `Links Rápidos (${quickLinks.length})` },
-            { id: 'comments', label: `Comentários (${comments.length})` },
-            { id: 'info', label: 'Cadastro' }
-          ] as { id: TabType; label: string }[]
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            style={{
-              padding: '10px 14px',
-              fontSize: '0.86rem',
-              whiteSpace: 'nowrap',
-              fontWeight: activeTab === t.id ? 700 : 500,
-              color: activeTab === t.id ? 'var(--green-primary)' : 'var(--text-secondary)',
-              borderBottom: activeTab === t.id ? '2px solid var(--green-primary)' : '2px solid transparent',
-              transition: 'all var(--transition-fast)'
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* TAB 1: VISÃO GERAL */}
-      {activeTab === 'overview' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-              Serviços Contratados
-            </span>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
-              {client.services.map((svc) => (
-                <span
-                  key={svc}
-                  style={{
-                    background: 'var(--green-tint)',
-                    color: 'var(--green-primary)',
-                    padding: '5px 12px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    border: '1px solid rgba(18, 53, 43, 0.15)'
-                  }}
-                >
-                  {svc}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '16px',
-              padding: '16px',
-              border: '1px solid var(--cream-border)',
-              borderRadius: 'var(--radius-md)'
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Responsável Interno
-              </div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '4px' }}>
-                {client.accountManager}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Status de Onboarding
-              </div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--sand-gold-dark)', marginTop: '4px' }}>
-                {onboardingProgress}% concluído
-              </div>
-            </div>
-          </div>
-
-          {client.notes && (
-            <div>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-                Observações Operacionais
-              </span>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '6px', lineHeight: 1.5 }}>
-                {client.notes}
-              </p>
-            </div>
-          )}
+            { id: 'history', label: 'Histórico & Notas' },
+            { id: 'offboarding', label: 'Offboarding' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as TabType)}
+              style={{
+                padding: '8px 14px',
+                border: 'none',
+                background: 'none',
+                borderBottom: activeTab === tab.id ? '2px solid var(--green-deep)' : '2px solid transparent',
+                color: activeTab === tab.id ? 'var(--green-deep)' : 'var(--text-secondary)',
+                fontWeight: activeTab === tab.id ? 700 : 500,
+                fontSize: '0.86rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* TAB 2: PROJETOS */}
-      {activeTab === 'projects' && (
-        <div>
-          {projects.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
-              Nenhum projeto cadastrado para este cliente.
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {projects.map((proj) => (
+        {/* 1. ABA: VISÃO GERAL */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+              <div className="card" style={{ padding: '16px' }}>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Contato Principal
+                </span>
+                <div style={{ fontSize: '1rem', fontWeight: 650, color: 'var(--green-deep)', marginTop: '4px' }}>
+                  {client.contactName}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', fontSize: '0.86rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                    <Mail size={14} color="var(--sand-gold-dark)" /> {client.email}
+                  </div>
+                  {client.phone && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                      <Phone size={14} color="var(--sand-gold-dark)" /> {client.phone}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: '16px' }}>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Serviços Contratados
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                  {client.services && client.services.length > 0 ? (
+                    client.services.map((s) => <Badge key={s} status={s} type="service" />)
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.84rem' }}>Nenhum serviço vinculado.</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: '16px' }}>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Operação & Gestão
+                </span>
+                <div style={{ marginTop: '8px', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div><strong>Gestor da Conta:</strong> {client.accountManager}</div>
+                  <div><strong>Status:</strong> {client.status}</div>
+                  <div><strong>Início da Parceria:</strong> {new Date(client.startDate).toLocaleDateString('pt-BR')}</div>
+                </div>
+              </div>
+            </div>
+
+            {client.notes && (
+              <div className="card" style={{ padding: '16px' }}>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Observações Estratégicas
+                </span>
+                <p style={{ margin: '6px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {client.notes}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2. ABA: PROJETOS */}
+        {activeTab === 'projects' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+                Projetos vinculados a {client.companyName}
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => onCreateProjectForClient && onCreateProjectForClient(client)}
+                style={{ gap: '4px' }}
+              >
+                <Plus size={14} /> Novo Projeto
+              </button>
+            </div>
+
+            {projects.length === 0 ? (
+              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+                <FolderOpen size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                  Nenhum projeto cadastrado para este cliente.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {projects.map((p) => (
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{
+                      padding: '16px 20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      if (onNavigateToProject) {
+                        onClose();
+                        onNavigateToProject(p.id);
+                      }
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>{p.name}</div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        <Badge status={p.service} type="service" />
+                        <span>Prazo: {new Date(p.dueDate).toLocaleDateString('pt-BR')}</span>
+                        <span>• Responsável: {p.responsible}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Badge status={p.status} />
+                      <ArrowRight size={16} color="var(--text-muted)" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 3. ABA: TAREFAS */}
+        {activeTab === 'tasks' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+                Tarefas operacionais
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => onCreateTaskForClient && onCreateTaskForClient(client)}
+                style={{ gap: '4px' }}
+              >
+                <Plus size={14} /> Nova Tarefa
+              </button>
+            </div>
+
+            {tasks.length === 0 ? (
+              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+                <CheckSquare size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                  Nenhuma tarefa pendente para este cliente.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {tasks.map((t) => (
+                  <div
+                    key={t.id}
+                    className="card"
+                    style={{
+                      padding: '12px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      if (onNavigateToTask) {
+                        onClose();
+                        onNavigateToTask(t.id);
+                      }
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{t.title}</span>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Responsável: {t.responsible} • Prazo: {new Date(t.dueDate).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    <Badge status={t.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 4. ABA: MATERIAIS */}
+        {activeTab === 'materials' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+                Biblioteca e Ativos do Cliente
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => onCreateMaterialForClient && onCreateMaterialForClient(client)}
+                style={{ gap: '4px' }}
+              >
+                <Plus size={14} /> Adicionar Material
+              </button>
+            </div>
+
+            {materials.length === 0 ? (
+              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                  Nenhum arquivo ou material vinculado a este cliente.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+                {materials.map((m) => (
+                  <div
+                    key={m.id}
+                    className="card"
+                    style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                  >
+                    <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.92rem' }}>{m.name}</div>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{m.category}</span>
+                    {m.externalUrl && (
+                      <a
+                        href={m.externalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        style={{ alignSelf: 'flex-start', marginTop: '6px', fontSize: '0.76rem' }}
+                      >
+                        <ExternalLink size={12} /> Acessar Link
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 5. ABA: APROVAÇÕES */}
+        {activeTab === 'approvals' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+              Aprovações do Cliente
+            </span>
+            {approvals.length === 0 ? (
+              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                  Nenhum item em fluxo de aprovação para este cliente.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {approvals.map((a) => (
+                  <div
+                    key={a.id}
+                    className="card"
+                    style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.92rem' }}>{a.title}</div>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Tipo: {a.type}</span>
+                    </div>
+                    <Badge status={a.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 6. ABA: CONTRATOS */}
+        {activeTab === 'contracts' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+                Contratos Vigentes
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => onCreateContractForClient && onCreateContractForClient(client)}
+                style={{ gap: '4px' }}
+              >
+                <Plus size={14} /> Adicionar Contrato
+              </button>
+            </div>
+
+            {contracts.length === 0 ? (
+              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                  Nenhum contrato formal cadastrado para este cliente.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {contracts.map((c) => (
+                  <div
+                    key={c.id}
+                    className="card"
+                    style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
+                        {c.service} — R$ {c.value.toLocaleString('pt-BR')} ({c.recurrence})
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Vigência: {new Date(c.startDate).toLocaleDateString('pt-BR')} até {new Date(c.endDate).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    <Badge status={c.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 7. ABA: FINANCEIRO */}
+        {activeTab === 'financial' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+              Extrato Financeiro
+            </span>
+            {financials.length === 0 ? (
+              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                  Nenhum lançamento financeiro registrado para este cliente.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {financials.map((f) => (
+                  <div
+                    key={f.id}
+                    className="card"
+                    style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{f.description}</div>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Vencimento: {new Date(f.dueDate).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--green-deep)', fontSize: '0.95rem' }}>
+                        R$ {f.value.toLocaleString('pt-BR')}
+                      </span>
+                      <Badge status={f.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 8. ABA: ONBOARDING */}
+        {activeTab === 'onboarding' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontWeight: 700, color: 'var(--green-deep)', fontSize: '1.05rem' }}>
+                    Checklist de Onboarding da Alicerce
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                    Ao concluir 100% das etapas, o cliente pode ser ativado diretamente na carteira operacional.
+                  </p>
+                </div>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--sand-gold-dark)' }}>
+                  {onboardingProgress}%
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ width: '100%', height: '8px', background: 'var(--cream-subtle)', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }}>
+                <div style={{ width: `${onboardingProgress}%`, height: '100%', background: 'var(--green-primary)', transition: 'width 0.3s ease' }} />
+              </div>
+
+              {/* Checklist items */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {onboardingItems.map((item) => (
+                  <div
+                    key={item.key}
+                    onClick={() => handleToggleOnboarding(item.key)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: item.completed ? 'rgba(34, 197, 94, 0.06)' : 'var(--cream-subtle)',
+                      border: item.completed ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid var(--cream-border-subtle)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {item.completed ? (
+                        <CheckSquare size={18} color="#15803D" />
+                      ) : (
+                        <Square size={18} color="var(--text-muted)" />
+                      )}
+                      <span
+                        style={{
+                          fontSize: '0.9rem',
+                          fontWeight: item.completed ? 600 : 500,
+                          color: item.completed ? '#15803D' : 'var(--text-primary)',
+                          textDecoration: item.completed ? 'line-through' : 'none'
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                    </div>
+
+                    {item.completedAt && (
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        Concluído em {new Date(item.completedAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Botão de Conclusão e Ativação */}
+              {client.status === 'Onboarding' && (
+                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--cream-border)', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleActivateClientFromOnboarding}
+                    disabled={isActivating}
+                    style={{ gap: '8px', fontWeight: 650 }}
+                  >
+                    <CheckCircle2 size={16} />
+                    {onboardingProgress === 100 ? 'Concluir Onboarding & Ativar Cliente' : 'Ativar Cliente na Operação'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 9. ABA: LINKS RÁPIDOS */}
+        {activeTab === 'links' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <form onSubmit={handleAddQuickLink} className="card" style={{ padding: '16px' }}>
+              <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--green-deep)', display: 'block', marginBottom: '10px' }}>
+                Adicionar Link Rápido (Drive, Meta Ads, Redes, Site)
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr auto', gap: '10px', alignItems: 'flex-end' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.78rem' }}>Título</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Pasta Google Drive"
+                    value={newLinkTitle}
+                    onChange={(e) => setNewLinkTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.78rem' }}>URL</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="https://drive.google.com/..."
+                    value={newLinkUrl}
+                    onChange={(e) => setNewLinkUrl(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.78rem' }}>Categoria</label>
+                  <select
+                    className="form-select"
+                    value={newLinkCat}
+                    onChange={(e) => setNewLinkCat(e.target.value as any)}
+                  >
+                    <option value="Drive">Drive</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="Meta Ads">Meta Ads</option>
+                    <option value="Google Ads">Google Ads</option>
+                    <option value="Google Meu Negócio">Google Meu Negócio</option>
+                    <option value="Site">Site</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-primary btn-sm" style={{ padding: '10px 14px' }}>
+                  <Plus size={14} /> Salvar
+                </button>
+              </div>
+            </form>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+              {quickLinks.map((link) => (
                 <div
-                  key={proj.id}
+                  key={link.id}
+                  className="card"
                   style={{
                     padding: '14px 16px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--cream-border)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between'
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.94rem' }}>{proj.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Entrega: {new Date(proj.dueDate).toLocaleDateString('pt-BR')} • {proj.service}
+                    <span style={{ fontSize: '0.74rem', color: 'var(--sand-gold-dark)', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {link.category}
+                    </span>
+                    <div style={{ fontWeight: 650, fontSize: '0.94rem', color: 'var(--text-primary)', marginTop: '2px' }}>
+                      {link.title}
                     </div>
                   </div>
-                  <Badge status={proj.status} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 3: ONBOARDING & OFFBOARDING */}
-      {activeTab === 'onboarding' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Onboarding Checklist */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--green-deep)' }}>
-                Checklist de Onboarding
-              </span>
-              <span style={{ fontSize: '0.84rem', fontWeight: 650, color: 'var(--sand-gold-dark)' }}>
-                {completedOnboardingCount} de {onboardingItems.length} ({onboardingProgress}%)
-              </span>
-            </div>
-
-            <div style={{ height: '6px', background: 'var(--cream-subtle)', borderRadius: '3px', overflow: 'hidden', marginBottom: '16px' }}>
-              <div style={{ width: `${onboardingProgress}%`, height: '100%', background: 'var(--green-primary)', transition: 'width 0.3s ease' }} />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {onboardingItems.map((item) => (
-                <div
-                  key={item.key}
-                  onClick={() => handleToggleOnboarding(item.key)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: item.completed ? 'var(--cream-subtle)' : '#FFFFFF',
-                    border: '1px solid var(--cream-border)',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {item.completed ? (
-                    <CheckSquare size={18} color="var(--status-active-text)" />
-                  ) : (
-                    <Square size={18} color="var(--text-muted)" />
-                  )}
-                  <span style={{ fontSize: '0.9rem', color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: item.completed ? 'line-through' : 'none' }}>
-                    {item.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Offboarding Checklist */}
-          <div style={{ paddingTop: '16px', borderTop: '1px solid var(--cream-border)' }}>
-            <span style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--green-deep)', display: 'block', marginBottom: '12px' }}>
-              Checklist de Encerramento (Offboarding)
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {offboardingItems.map((item) => (
-                <div
-                  key={item.key}
-                  onClick={() => handleToggleOffboarding(item.key)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: item.completed ? 'var(--cream-subtle)' : '#FFFFFF',
-                    border: '1px solid var(--cream-border)',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {item.completed ? (
-                    <CheckSquare size={18} color="var(--status-active-text)" />
-                  ) : (
-                    <Square size={18} color="var(--text-muted)" />
-                  )}
-                  <span style={{ fontSize: '0.9rem', color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: item.completed ? 'line-through' : 'none' }}>
-                    {item.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: LINKS RÁPIDOS */}
-      {activeTab === 'links' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <form onSubmit={handleAddQuickLink} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              className="form-input"
-              style={{ flex: 1, minWidth: '160px' }}
-              placeholder="Título (Ex: Pasta no Google Drive)"
-              value={newLinkTitle}
-              onChange={(e) => setNewLinkTitle(e.target.value)}
-              required
-            />
-            <input
-              type="url"
-              className="form-input"
-              style={{ flex: 2, minWidth: '220px' }}
-              placeholder="https://drive.google.com/..."
-              value={newLinkUrl}
-              onChange={(e) => setNewLinkUrl(e.target.value)}
-              required
-            />
-            <button type="submit" className="btn btn-primary" style={{ gap: '6px' }}>
-              <Plus size={16} /> Adicionar Link
-            </button>
-          </form>
-
-          {quickLinks.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
-              Nenhum link rápido cadastrado para este cliente.
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {quickLinks.map((link) => (
-                <div
-                  key={link.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--cream-border)',
-                    background: '#FFFFFF'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <LinkIcon size={16} color="var(--green-primary)" />
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{link.title}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
                     <a
                       href={link.url}
                       target="_blank"
-                      rel="noopener noreferrer"
+                      rel="noreferrer"
                       className="btn btn-secondary btn-sm"
-                      style={{ padding: '4px 10px', gap: '4px', fontSize: '0.78rem' }}
+                      style={{ padding: '6px 10px', fontSize: '0.78rem', gap: '4px' }}
                     >
-                      Acessar <ExternalLink size={12} />
+                      <ExternalLink size={13} /> Abrir
                     </a>
                     <button
-                      type="button"
+                      className="sidebar-collapse-btn"
                       onClick={() => handleDeleteQuickLink(link.id)}
-                      style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', padding: '4px' }}
-                      title="Remover link"
+                      style={{ color: '#DC2626' }}
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* TAB 5: COMENTÁRIOS INTERNOS */}
-      {activeTab === 'comments' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <form onSubmit={handleAddComment} style={{ display: 'flex', gap: '10px' }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Escreva uma anotação interna sobre este cliente..."
-              value={newCommentText}
-              onChange={(e) => setNewCommentText(e.target.value)}
-              required
-            />
-            <button type="submit" className="btn btn-primary" style={{ gap: '6px' }}>
-              <Send size={15} /> Registrar
-            </button>
-          </form>
+        {/* 10. ABA: HISTÓRICO & NOTAS */}
+        {activeTab === 'history' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <form onSubmit={handleAddComment} className="card" style={{ padding: '16px' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 650 }}>
+                Registrar Nota Interna ou Alinhamento
+              </label>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Alinhamento realizado sobre aprovação de criativos..."
+                  value={newCommentText}
+                  onChange={(e) => setNewCommentText(e.target.value)}
+                  required
+                />
+                <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap', gap: '6px' }}>
+                  <Send size={14} /> Registrar
+                </button>
+              </div>
+            </form>
 
-          {comments.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
-              Nenhuma anotação registrada ainda.
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {comments.map((c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'var(--cream-subtle)',
-                    border: '1px solid var(--cream-border)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: 650, fontSize: '0.86rem', color: 'var(--green-deep)' }}>
-                      {c.userName}
-                    </span>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      {new Date(c.createdAt).toLocaleDateString('pt-BR')} às {new Date(c.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {comments.map((cmt) => (
+                <div key={cmt.id} className="card" style={{ padding: '14px 18px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    <strong>{cmt.userName}</strong>
+                    <span>{new Date(cmt.createdAt).toLocaleString('pt-BR')}</span>
                   </div>
-                  <p style={{ fontSize: '0.88rem', color: 'var(--text-primary)', margin: 0, lineHeight: 1.45 }}>
-                    {c.content}
+                  <p style={{ margin: '6px 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                    {cmt.content}
                   </p>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 6: INFORMAÇÕES CADASTRAIS */}
-      {activeTab === 'info' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="form-row">
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>RAZÃO / NOME FANTASIA</div>
-              <div style={{ fontWeight: 600, marginTop: '4px' }}>{client.companyName}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>CONTATO PRINCIPAL</div>
-              <div style={{ fontWeight: 600, marginTop: '4px' }}>{client.contactName}</div>
-            </div>
           </div>
+        )}
 
-          <div className="form-row">
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>E-MAIL</div>
-              <div style={{ marginTop: '4px' }}>{client.email}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>TELEFONE / WHATSAPP</div>
-              <div style={{ marginTop: '4px' }}>{client.phone}</div>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>SITE INSTITUCIONAL</div>
-              <div style={{ marginTop: '4px' }}>
-                {client.website ? (
-                  <a href={client.website} target="_blank" rel="noreferrer" style={{ color: 'var(--green-primary)', textDecoration: 'underline' }}>
-                    {client.website}
-                  </a>
-                ) : (
-                  'Não informado'
-                )}
+        {/* 11. ABA: OFFBOARDING */}
+        {activeTab === 'offboarding' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontWeight: 700, color: 'var(--green-deep)', fontSize: '1.05rem' }}>
+                    Checklist de Offboarding / Encerramento
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                    Rito formal de entrega de arquivos, revogação de acessos e quitação de pendências.
+                  </p>
+                </div>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--sand-gold-dark)' }}>
+                  {offboardingProgress}%
+                </span>
               </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>INSTAGRAM</div>
-              <div style={{ marginTop: '4px' }}>{client.instagram || 'Não informado'}</div>
+
+              {/* Progress bar */}
+              <div style={{ width: '100%', height: '8px', background: 'var(--cream-subtle)', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }}>
+                <div style={{ width: `${offboardingProgress}%`, height: '100%', background: '#DC2626', transition: 'width 0.3s ease' }} />
+              </div>
+
+              {/* Checklist items */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {offboardingItems.map((item) => (
+                  <div
+                    key={item.key}
+                    onClick={() => handleToggleOffboarding(item.key)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: item.completed ? 'rgba(220, 38, 38, 0.06)' : 'var(--cream-subtle)',
+                      border: item.completed ? '1px solid rgba(220, 38, 38, 0.2)' : '1px solid var(--cream-border-subtle)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {item.completed ? (
+                        <CheckSquare size={18} color="#DC2626" />
+                      ) : (
+                        <Square size={18} color="var(--text-muted)" />
+                      )}
+                      <span
+                        style={{
+                          fontSize: '0.9rem',
+                          fontWeight: item.completed ? 600 : 500,
+                          color: item.completed ? '#DC2626' : 'var(--text-primary)',
+                          textDecoration: item.completed ? 'line-through' : 'none'
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                    </div>
+
+                    {item.completedAt && (
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        Concluído em {new Date(item.completedAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {client.status !== 'Encerrado' && (
+                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--cream-border)', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleCloseClientFromOffboarding}
+                    style={{ color: '#DC2626', borderColor: '#FCA5A5', gap: '6px' }}
+                  >
+                    Encerrar Parceria com o Cliente
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </Modal>
   );
 };
