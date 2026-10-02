@@ -1,0 +1,694 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Briefcase,
+  Plus,
+  Search,
+  Filter,
+  Calendar,
+  User,
+  ArrowRight,
+  Trash2,
+  Edit,
+  LayoutGrid,
+  List
+} from 'lucide-react';
+import { db } from '../../services/db';
+import { Project, ProjectStatus, ServiceType, Client } from '../../types';
+import { Badge } from '../../components/Common/Badge';
+import { Modal } from '../../components/Common/Modal';
+import { ConfirmDialog } from '../../components/Common/ConfirmDialog';
+import { useToast } from '../../components/Common/Toast';
+import { ProjectDetailPage } from './ProjectDetailPage';
+
+interface ProjectsPageProps {
+  selectedProjectId?: string;
+  onClearSelectedProject?: () => void;
+}
+
+export const ProjectsPage: React.FC<ProjectsPageProps> = ({
+  selectedProjectId,
+  onClearSelectedProject
+}) => {
+  const { showToast } = useToast();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | ProjectStatus>('Todos');
+  const [serviceFilter, setServiceFilter] = useState<'Todos' | ServiceType>('Todos');
+  const [clientFilter, setClientFilter] = useState<'Todos' | string>('Todos');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+
+  // Modal create/edit
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    name: '',
+    clientId: '',
+    service: 'Meta Ads' as ServiceType,
+    responsible: 'Wesley Nunes',
+    startDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    description: '',
+    status: 'Planejamento' as ProjectStatus
+  });
+
+  const loadData = () => {
+    const pList = db.getProjects();
+    const cList = db.getClients();
+    setProjects(pList);
+    setClients(cList);
+
+    if (selectedProjectId) {
+      const found = pList.find((p) => p.id === selectedProjectId);
+      if (found) setActiveProject(found);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [selectedProjectId]);
+
+  const handleOpenCreate = () => {
+    if (clients.length === 0) {
+      showToast('Cadastre um cliente primeiro para criar um projeto.', 'error');
+      return;
+    }
+    setEditingProject(null);
+    const in30Days = new Date();
+    in30Days.setDate(in30Days.getDate() + 30);
+
+    setFormData({
+      name: '',
+      clientId: clients[0].id,
+      service: 'Meta Ads',
+      responsible: 'Wesley Nunes',
+      startDate: new Date().toISOString().split('T')[0],
+      dueDate: in30Days.toISOString().split('T')[0],
+      description: '',
+      status: 'Planejamento'
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (proj: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingProject(proj);
+    setFormData({
+      name: proj.name,
+      clientId: proj.clientId,
+      service: proj.service,
+      responsible: proj.responsible,
+      startDate: proj.startDate,
+      dueDate: proj.dueDate,
+      description: proj.description,
+      status: proj.status
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.clientId || !formData.dueDate) {
+      showToast('Preencha os campos obrigatórios.', 'error');
+      return;
+    }
+
+    const selectedClient = clients.find((c) => c.id === formData.clientId);
+    const clientName = selectedClient ? selectedClient.companyName : 'Cliente';
+
+    // Standard initial stages if new
+    const initialStages = [
+      { id: 'stg-1', title: 'Briefing e Alinhamento Estratégico', completed: false },
+      { id: 'stg-2', title: 'Auditoria de Acessos e Ativos', completed: false },
+      { id: 'stg-3', title: 'Planejamento e Cronograma de Execução', completed: false },
+      { id: 'stg-4', title: 'Produção e Desenvolvimento', completed: false },
+      { id: 'stg-5', title: 'Revisão Interna de Qualidade', completed: false },
+      { id: 'stg-6', title: 'Aprovação e Entrega Final ao Cliente', completed: false }
+    ];
+
+    const projToSave: Project = {
+      id: editingProject ? editingProject.id : 'proj-' + Date.now(),
+      name: formData.name,
+      clientId: formData.clientId,
+      clientName,
+      service: formData.service,
+      responsible: formData.responsible,
+      startDate: formData.startDate,
+      dueDate: formData.dueDate,
+      description: formData.description,
+      status: formData.status,
+      progress: editingProject ? editingProject.progress : 0,
+      stages: editingProject ? editingProject.stages : initialStages,
+      notes: editingProject ? editingProject.notes : '',
+      relatedMaterials: editingProject ? editingProject.relatedMaterials : [],
+      createdAt: editingProject ? editingProject.createdAt : new Date().toISOString()
+    };
+
+    db.saveProject(projToSave);
+    loadData();
+    if (activeProject && activeProject.id === projToSave.id) {
+      setActiveProject(projToSave);
+    }
+    setIsModalOpen(false);
+    showToast(
+      editingProject ? 'Projeto atualizado com sucesso!' : 'Projeto criado com sucesso!',
+      'success'
+    );
+  };
+
+  const handleDeleteProject = () => {
+    if (!projectToDelete) return;
+    db.deleteProject(projectToDelete.id);
+    loadData();
+    if (activeProject?.id === projectToDelete.id) {
+      setActiveProject(null);
+    }
+    showToast('Projeto removido.', 'info');
+    setProjectToDelete(null);
+  };
+
+  // If viewing project details
+  if (activeProject) {
+    return (
+      <ProjectDetailPage
+        project={activeProject}
+        onBack={() => {
+          setActiveProject(null);
+          if (onClearSelectedProject) onClearSelectedProject();
+        }}
+        onUpdate={(updated) => {
+          setActiveProject(updated);
+          loadData();
+        }}
+      />
+    );
+  }
+
+  // Filter list
+  const filteredProjects = projects.filter((p) => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.service.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'Todos' || p.status === statusFilter;
+    const matchesService = serviceFilter === 'Todos' || p.service === serviceFilter;
+    const matchesClient = clientFilter === 'Todos' || p.clientId === clientFilter;
+
+    return matchesSearch && matchesStatus && matchesService && matchesClient;
+  });
+
+  return (
+    <div>
+      {/* Page Title & Action */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          marginBottom: '28px'
+        }}
+      >
+        <div>
+          <h1 className="font-serif" style={{ fontSize: '2.2rem', fontWeight: 700, color: 'var(--green-deep)' }}>
+            Projetos
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+            Fluxos de trabalho, etapas e entregas ativas por cliente.
+          </p>
+        </div>
+
+        <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '8px' }}>
+          <Plus size={18} /> Novo Projeto
+        </button>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div
+        className="card"
+        style={{
+          padding: '16px 20px',
+          marginBottom: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px'
+        }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+          {/* Search */}
+          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+            <Search
+              size={18}
+              color="var(--text-muted)"
+              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+            />
+            <input
+              type="text"
+              className="form-input"
+              style={{ paddingLeft: '38px', borderRadius: 'var(--radius-full)' }}
+              placeholder="Pesquisar projetos, clientes ou serviços..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Client Filter */}
+          <div style={{ minWidth: '180px' }}>
+            <select
+              className="form-select"
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+            >
+              <option value="Todos">Todos os Clientes</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.companyName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Service Filter */}
+          <div style={{ minWidth: '170px' }}>
+            <select
+              className="form-select"
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value as any)}
+            >
+              <option value="Todos">Todos os Serviços</option>
+              <option value="Meta Ads">Meta Ads</option>
+              <option value="Google Ads">Google Ads</option>
+              <option value="Social Media">Social Media</option>
+              <option value="Google Meu Negócio">Google Meu Negócio</option>
+              <option value="Landing Page">Landing Page</option>
+              <option value="Site Institucional">Site Institucional</option>
+              <option value="Identidade Visual">Identidade Visual</option>
+              <option value="Criativos">Criativos</option>
+              <option value="Edição de Vídeo">Edição de Vídeo</option>
+              <option value="Plano Estratégico">Plano Estratégico</option>
+            </select>
+          </div>
+
+          {/* Grid/Table switch */}
+          <div style={{ display: 'flex', gap: '2px', border: '1px solid var(--cream-border)', borderRadius: 'var(--radius-md)', padding: '2px' }}>
+            <button
+              onClick={() => setViewMode('grid')}
+              style={{
+                padding: '6px 8px',
+                borderRadius: 'var(--radius-sm)',
+                background: viewMode === 'grid' ? 'var(--cream-subtle)' : 'transparent',
+                color: viewMode === 'grid' ? 'var(--green-primary)' : 'var(--text-muted)'
+              }}
+              title="Cards"
+            >
+              <LayoutGrid size={17} />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              style={{
+                padding: '6px 8px',
+                borderRadius: 'var(--radius-sm)',
+                background: viewMode === 'table' ? 'var(--cream-subtle)' : 'transparent',
+                color: viewMode === 'table' ? 'var(--green-primary)' : 'var(--text-muted)'
+              }}
+              title="Tabela"
+            >
+              <List size={17} />
+            </button>
+          </div>
+        </div>
+
+        {/* Status Filter Badges */}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {(['Todos', 'Planejamento', 'Em produção', 'Aguardando cliente', 'Revisão', 'Finalizado'] as const).map(
+            (st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.78rem',
+                  fontWeight: statusFilter === st ? 700 : 500,
+                  background: statusFilter === st ? 'var(--green-primary)' : 'var(--cream-subtle)',
+                  color: statusFilter === st ? '#ffffff' : 'var(--text-secondary)',
+                  border: '1px solid',
+                  borderColor: statusFilter === st ? 'var(--green-primary)' : 'var(--cream-border)',
+                  transition: 'all var(--transition-fast)'
+                }}
+              >
+                {st}
+              </button>
+            )
+          )}
+        </div>
+      </div>
+
+      {/* Empty State */}
+      {filteredProjects.length === 0 && (
+        <div className="card empty-state">
+          <div className="empty-state-icon">
+            <Briefcase size={28} />
+          </div>
+          <h3 className="empty-state-title">Nenhum projeto encontrado</h3>
+          <p className="empty-state-text">
+            Nenhum projeto corresponde aos critérios de pesquisa ou filtros selecionados.
+          </p>
+          <button className="btn btn-primary" onClick={handleOpenCreate}>
+            <Plus size={16} /> Criar Novo Projeto
+          </button>
+        </div>
+      )}
+
+      {/* Grid View */}
+      {viewMode === 'grid' && filteredProjects.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: '20px'
+          }}
+        >
+          {filteredProjects.map((proj) => (
+            <div
+              key={proj.id}
+              className="card"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                cursor: 'pointer'
+              }}
+              onClick={() => setActiveProject(proj)}
+            >
+              <div>
+                <div className="card-header" style={{ marginBottom: '10px' }}>
+                  <div>
+                    <span
+                      style={{
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        color: 'var(--sand-gold-dark)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      {proj.clientName}
+                    </span>
+                    <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+                      {proj.name}
+                    </h4>
+                  </div>
+                  <Badge status={proj.status} />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <Badge status={proj.service} type="service" />
+                </div>
+
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '16px' }}>
+                  {proj.description || 'Sem descrição cadastrada.'}
+                </p>
+
+                {/* Progress bar */}
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '6px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Progresso ({proj.stages.filter(s => s.completed).length}/{proj.stages.length} etapas)</span>
+                    <span style={{ fontWeight: 700, color: 'var(--green-primary)' }}>{proj.progress}%</span>
+                  </div>
+                  <div className="progress-bar-container">
+                    <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom metadata */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--cream-border-subtle)',
+                  fontSize: '0.78rem',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <div>
+                  Prazo: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong>
+                </div>
+
+                <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="sidebar-collapse-btn"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onClick={(e) => handleOpenEdit(proj, e)}
+                    title="Editar projeto"
+                  >
+                    <Edit size={14} />
+                  </button>
+                  <button
+                    className="sidebar-collapse-btn"
+                    style={{ color: '#dc2626' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectToDelete(proj);
+                    }}
+                    title="Excluir projeto"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Table View */}
+      {viewMode === 'table' && filteredProjects.length > 0 && (
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Projeto</th>
+                <th>Cliente</th>
+                <th>Serviço</th>
+                <th>Responsável</th>
+                <th>Prazo</th>
+                <th>Progresso</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProjects.map((proj) => (
+                <tr
+                  key={proj.id}
+                  onClick={() => setActiveProject(proj)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{proj.name}</td>
+                  <td>{proj.clientName}</td>
+                  <td>
+                    <Badge status={proj.service} type="service" />
+                  </td>
+                  <td>{proj.responsible}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td style={{ minWidth: '120px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className="progress-bar-container" style={{ width: '80px' }}>
+                        <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
+                      </div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{proj.progress}%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <Badge status={proj.status} />
+                  </td>
+                  <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'inline-flex', gap: '4px' }}>
+                      <button
+                        className="sidebar-collapse-btn"
+                        style={{ color: 'var(--text-secondary)' }}
+                        onClick={(e) => handleOpenEdit(proj, e)}
+                      >
+                        <Edit size={14} />
+                      </button>
+                      <button
+                        className="sidebar-collapse-btn"
+                        style={{ color: '#dc2626' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(proj);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal Criar / Editar Projeto */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingProject ? 'Editar Projeto' : 'Novo Projeto'}
+        subtitle="Vincule a um cliente e defina o escopo operacional"
+      >
+        <form onSubmit={handleSaveProject}>
+          <div className="form-group">
+            <label className="form-label">Nome do Projeto *</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Ex: Aquisição Meta Ads Q4 — Escala"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Cliente Vinculado *</label>
+              <select
+                className="form-select"
+                value={formData.clientId}
+                onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                required
+              >
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.companyName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Serviço *</label>
+              <select
+                className="form-select"
+                value={formData.service}
+                onChange={(e) => setFormData({ ...formData, service: e.target.value as ServiceType })}
+              >
+                <option value="Meta Ads">Meta Ads</option>
+                <option value="Google Ads">Google Ads</option>
+                <option value="Social Media">Social Media</option>
+                <option value="Google Meu Negócio">Google Meu Negócio</option>
+                <option value="Landing Page">Landing Page</option>
+                <option value="Site Institucional">Site Institucional</option>
+                <option value="Identidade Visual">Identidade Visual</option>
+                <option value="Criativos">Criativos</option>
+                <option value="Edição de Vídeo">Edição de Vídeo</option>
+                <option value="Plano Estratégico">Plano Estratégico</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Responsável</label>
+              <select
+                className="form-select"
+                value={formData.responsible}
+                onChange={(e) => setFormData({ ...formData, responsible: e.target.value })}
+              >
+                <option value="Wesley Nunes">Wesley Nunes</option>
+                <option value="Ana Castro">Ana Castro</option>
+                <option value="Equipe Alicerce">Equipe Alicerce</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Status Inicial</label>
+              <select
+                className="form-select"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as ProjectStatus })}
+              >
+                <option value="Planejamento">Planejamento</option>
+                <option value="Em produção">Em produção</option>
+                <option value="Aguardando cliente">Aguardando cliente</option>
+                <option value="Revisão">Revisão</option>
+                <option value="Finalizado">Finalizado</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Data de Início</label>
+              <input
+                type="date"
+                className="form-input"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Data Prevista de Entrega *</label>
+              <input
+                type="date"
+                className="form-input"
+                value={formData.dueDate}
+                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Descrição do Projeto</label>
+            <textarea
+              className="form-textarea"
+              rows={3}
+              placeholder="Objetivos, público-alvo, diretrizes e canais envolvidos..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {editingProject ? 'Salvar Alterações' : 'Criar Projeto'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(projectToDelete)}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={handleDeleteProject}
+        title="Excluir Projeto"
+        message={`Deseja realmente excluir o projeto "${projectToDelete?.name}"? Esta ação removerá o checklist e o histórico de etapas.`}
+      />
+    </div>
+  );
+};
