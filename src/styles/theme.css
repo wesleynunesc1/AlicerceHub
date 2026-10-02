@@ -1753,6 +1753,15 @@ p, .text-body {
   .mobile-cards-container {
     display: block !important;
   }
+  .desktop-header-context {
+    display: none !important;
+  }
+  .desktop-calendar-grid {
+    display: none !important;
+  }
+  .mobile-calendar-list {
+    display: flex !important;
+  }
   .desktop-search {
     display: none !important;
   }

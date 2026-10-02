@@ -13,11 +13,34 @@ import { db } from '../../services/db';
 import { NavTab } from './Sidebar';
 
 interface HeaderProps {
+  currentTab?: NavTab;
   onOpenMobileMenu: () => void;
   onNavigate: (tab: NavTab, targetId?: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onNavigate }) => {
+const TAB_META: Record<NavTab, { group: string; label: string }> = {
+  dashboard: { group: 'Operação', label: 'Dashboard' },
+  clients: { group: 'Operação', label: 'Clientes' },
+  projects: { group: 'Operação', label: 'Projetos' },
+  tasks: { group: 'Operação', label: 'Tarefas' },
+  calendar: { group: 'Operação', label: 'Agenda' },
+  approvals: { group: 'Operação', label: 'Aprovações' },
+  leads: { group: 'Comercial', label: 'Leads' },
+  proposals: { group: 'Comercial', label: 'Propostas' },
+  contracts: { group: 'Comercial', label: 'Contratos' },
+  financial: { group: 'Comercial', label: 'Financeiro' },
+  processes: { group: 'Gestão', label: 'Processos' },
+  templates: { group: 'Gestão', label: 'Templates' },
+  materials: { group: 'Gestão', label: 'Materiais' },
+  reports: { group: 'Gestão', label: 'Relatórios' },
+  team: { group: 'Gestão', label: 'Equipe' },
+  content: { group: 'Marca', label: 'Conteúdo' },
+  'brand-center': { group: 'Marca', label: 'Brand Center' },
+  settings: { group: 'Sistema', label: 'Configurações' },
+  profile: { group: 'Sistema', label: 'Perfil' }
+};
+
+export const Header: React.FC<HeaderProps> = ({ currentTab = 'dashboard', onOpenMobileMenu, onNavigate }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
@@ -226,6 +249,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onNavigate }) 
         <div className="header-mobile-brand" onClick={() => onNavigate('dashboard')}>
           <img src="/Ab.png" alt="Logo Alicerce" className="header-mobile-logo" />
           <span className="header-mobile-title font-serif">Alicerce</span>
+        </div>
+
+        {/* Desktop Context Path */}
+        <div className="desktop-header-context" style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', marginRight: '8px' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {TAB_META[currentTab]?.group || 'Operação'}
+          </span>
+          <span style={{ color: 'var(--sand-gold)', fontSize: '0.82rem', fontWeight: 600 }}>/</span>
+          <span style={{ fontSize: '0.88rem', color: 'var(--green-deep)', fontWeight: 750 }}>
+            {TAB_META[currentTab]?.label || 'Dashboard'}
+          </span>
         </div>
 
         {/* Desktop Global Search Bar */}

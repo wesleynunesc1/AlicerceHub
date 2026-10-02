@@ -331,8 +331,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             </div>
           </div>
 
-          {/* Grid do Mês */}
+          {/* Grid do Mês (Desktop) */}
           <div
+            className="desktop-calendar-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(7, 1fr)',
@@ -430,6 +431,72 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 </div>
               );
             })}
+          </div>
+
+          {/* Lista de Compromissos por Dia (Mobile - evita calendário espremido) */}
+          <div
+            className="mobile-calendar-list"
+            style={{
+              display: 'none',
+              flexDirection: 'column',
+              gap: '12px',
+              padding: '8px 0'
+            }}
+          >
+            {allEvents.filter((e) => {
+              const d = new Date(e.date);
+              return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+            }).length === 0 ? (
+              <div className="card" style={{ padding: '28px 16px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>
+                  Nenhum compromisso para este mês.
+                </p>
+              </div>
+            ) : (
+              allEvents
+                .filter((e) => {
+                  const d = new Date(e.date);
+                  return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+                })
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .map((evt) => {
+                  const style = getEventTypeColor(evt.type);
+                  return (
+                    <div
+                      key={evt.id}
+                      className="mobile-item-card"
+                      onClick={() => handleEventClick(evt)}
+                      style={{ cursor: 'pointer', padding: '14px', borderLeft: `4px solid ${style.color}` }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--sand-gold-dark)' }}>
+                          {new Date(evt.date).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })} • {evt.time}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 650,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: style.bg,
+                            color: style.color
+                          }}
+                        >
+                          {evt.type}
+                        </span>
+                      </div>
+                      <div style={{ fontWeight: 650, fontSize: '0.94rem', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {evt.title}
+                      </div>
+                      {(evt.clientName || evt.projectName) && (
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                          {evt.clientName} {evt.projectName ? `• ${evt.projectName}` : ''}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+            )}
           </div>
         </div>
       ) : (

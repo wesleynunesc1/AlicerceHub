@@ -32,6 +32,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
       <div className={`main-content ${isCollapsed ? 'collapsed' : ''}`}>
         <Header
+          currentTab={currentTab}
           onOpenMobileMenu={() => setIsMobileOpen(true)}
           onNavigate={(tab) => onSelectTab(tab)}
         />
