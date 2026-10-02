@@ -272,102 +272,121 @@ alter table public.brand_assets enable row level security;
 alter table public.activity_logs enable row level security;
 
 -- PROFILES
+drop policy if exists "Usuários autenticados podem ver perfis" on public.profiles;
 create policy "Usuários autenticados podem ver perfis"
   on public.profiles for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários podem atualizar seu próprio perfil" on public.profiles;
 create policy "Usuários podem atualizar seu próprio perfil"
   on public.profiles for update
   to authenticated
   using (auth.uid() = id or public.is_admin())
   with check (auth.uid() = id or public.is_admin());
 
+drop policy if exists "Admin pode gerenciar perfis" on public.profiles;
 create policy "Admin pode gerenciar perfis"
   on public.profiles for all
   to authenticated
   using (public.is_admin());
 
 -- SERVICES
+drop policy if exists "Usuários autenticados podem visualizar serviços" on public.services;
 create policy "Usuários autenticados podem visualizar serviços"
   on public.services for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem criar ou atualizar serviços" on public.services;
 create policy "Usuários autenticados podem criar ou atualizar serviços"
   on public.services for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Usuários autenticados podem editar serviços" on public.services;
 create policy "Usuários autenticados podem editar serviços"
   on public.services for update
   to authenticated
   using (true);
 
+drop policy if exists "Admin pode excluir serviços" on public.services;
 create policy "Admin pode excluir serviços"
   on public.services for delete
   to authenticated
   using (public.is_admin());
 
 -- CLIENTS
+drop policy if exists "Usuários autenticados podem visualizar clientes" on public.clients;
 create policy "Usuários autenticados podem visualizar clientes"
   on public.clients for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem criar clientes" on public.clients;
 create policy "Usuários autenticados podem criar clientes"
   on public.clients for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Usuários autenticados podem atualizar clientes" on public.clients;
 create policy "Usuários autenticados podem atualizar clientes"
   on public.clients for update
   to authenticated
   using (true);
 
+drop policy if exists "Admin e Team podem excluir clientes" on public.clients;
 create policy "Admin e Team podem excluir clientes"
   on public.clients for delete
   to authenticated
   using (public.is_admin() or auth.uid() is not null);
 
 -- CLIENT_SERVICES
+drop policy if exists "Usuários autenticados podem ler vínculos de serviços" on public.client_services;
 create policy "Usuários autenticados podem ler vínculos de serviços"
   on public.client_services for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem vincular serviços" on public.client_services;
 create policy "Usuários autenticados podem vincular serviços"
   on public.client_services for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Usuários autenticados podem desvincular serviços" on public.client_services;
 create policy "Usuários autenticados podem desvincular serviços"
   on public.client_services for delete
   to authenticated
   using (true);
 
 -- PROJECTS
+drop policy if exists "Usuários autenticados podem visualizar projetos" on public.projects;
 create policy "Usuários autenticados podem visualizar projetos"
   on public.projects for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem criar projetos" on public.projects;
 create policy "Usuários autenticados podem criar projetos"
   on public.projects for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Usuários autenticados podem atualizar projetos" on public.projects;
 create policy "Usuários autenticados podem atualizar projetos"
   on public.projects for update
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem excluir projetos" on public.projects;
 create policy "Usuários autenticados podem excluir projetos"
   on public.projects for delete
   to authenticated
   using (public.is_admin() or auth.uid() is not null);
 
 -- PROJECT_STEPS
+drop policy if exists "Usuários autenticados podem gerenciar etapas de projetos" on public.project_steps;
 create policy "Usuários autenticados podem gerenciar etapas de projetos"
   on public.project_steps for all
   to authenticated
@@ -375,11 +394,13 @@ create policy "Usuários autenticados podem gerenciar etapas de projetos"
   with check (true);
 
 -- PROCESSES
+drop policy if exists "Usuários autenticados podem visualizar processos" on public.processes;
 create policy "Usuários autenticados podem visualizar processos"
   on public.processes for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem criar e editar processos" on public.processes;
 create policy "Usuários autenticados podem criar e editar processos"
   on public.processes for all
   to authenticated
@@ -387,6 +408,7 @@ create policy "Usuários autenticados podem criar e editar processos"
   with check (true);
 
 -- PROCESS_STEPS
+drop policy if exists "Usuários autenticados podem gerenciar etapas de processos" on public.process_steps;
 create policy "Usuários autenticados podem gerenciar etapas de processos"
   on public.process_steps for all
   to authenticated
@@ -394,32 +416,38 @@ create policy "Usuários autenticados podem gerenciar etapas de processos"
   with check (true);
 
 -- MATERIALS
+drop policy if exists "Usuários autenticados podem visualizar materiais" on public.materials;
 create policy "Usuários autenticados podem visualizar materiais"
   on public.materials for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem cadastrar materiais" on public.materials;
 create policy "Usuários autenticados podem cadastrar materiais"
   on public.materials for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Usuários autenticados podem atualizar materiais" on public.materials;
 create policy "Usuários autenticados podem atualizar materiais"
   on public.materials for update
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem excluir materiais" on public.materials;
 create policy "Usuários autenticados podem excluir materiais"
   on public.materials for delete
   to authenticated
   using (public.is_admin() or auth.uid() is not null);
 
 -- BRAND_ASSETS
+drop policy if exists "Usuários autenticados podem visualizar brand assets" on public.brand_assets;
 create policy "Usuários autenticados podem visualizar brand assets"
   on public.brand_assets for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem atualizar brand assets" on public.brand_assets;
 create policy "Usuários autenticados podem atualizar brand assets"
   on public.brand_assets for all
   to authenticated
@@ -427,11 +455,13 @@ create policy "Usuários autenticados podem atualizar brand assets"
   with check (true);
 
 -- ACTIVITY_LOGS
+drop policy if exists "Usuários autenticados podem visualizar logs de atividade" on public.activity_logs;
 create policy "Usuários autenticados podem visualizar logs de atividade"
   on public.activity_logs for select
   to authenticated
   using (true);
 
+drop policy if exists "Usuários autenticados podem criar logs de atividade" on public.activity_logs;
 create policy "Usuários autenticados podem criar logs de atividade"
   on public.activity_logs for insert
   to authenticated
