@@ -4,17 +4,32 @@ import {
   Briefcase,
   Clock,
   Calendar,
+  AlertTriangle,
+  TrendingUp,
+  FileText,
+  FileCheck2,
+  DollarSign,
+  CheckCircle2,
+  ArrowRight,
   ArrowUpRight,
-  Plus,
-  ArrowRight
+  Plus
 } from 'lucide-react';
-import { db } from '../../services/db';
-import { dashboardService, DashboardMetrics } from '../../services/dashboard';
+import {
+  Client,
+  Project,
+  Task,
+  Lead,
+  Proposal,
+  Contract,
+  CalendarEvent,
+  ActivityItem
+} from '../../types';
 import { projectsService } from '../../services/projects';
 import { clientsService } from '../../services/clients';
+import { phase2Service } from '../../services/phase2';
+import { dashboardService } from '../../services/dashboard';
 import { Badge } from '../../components/Common/Badge';
 import { NavTab } from '../../components/Layout/Sidebar';
-import { Project, Client } from '../../types';
 
 interface DashboardPageProps {
   onNavigate: (tab: NavTab, targetId?: string) => void;
@@ -23,75 +38,81 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   useEffect(() => {
-    const loadDashboard = async () => {
+    const loadData = async () => {
       setIsLoading(true);
       try {
-        const [remoteProjects, remoteClients, remoteMetrics] = await Promise.all([
-          projectsService.getProjects(),
+        const [cls, projs, tsks, lds, props, ctrs, evts, acts] = await Promise.all([
           clientsService.getClients(),
-          dashboardService.getMetrics(),
+          projectsService.getProjects(),
+          phase2Service.getTasks(),
+          phase2Service.getLeads(),
+          phase2Service.getProposals(),
+          phase2Service.getContracts(),
+          phase2Service.getEvents(),
+          dashboardService.getRecentActivities()
         ]);
-
-        setProjects(remoteProjects || []);
-        setClients(remoteClients || []);
-        setMetrics(remoteMetrics || {
-          activeClientsCount: 0,
-          inProgressProjectsCount: 0,
-          waitingClientProjectsCount: 0,
-          upcomingCount: 0,
-        });
+        setClients(cls);
+        setProjects(projs);
+        setTasks(tsks);
+        setLeads(lds);
+        setProposals(props);
+        setContracts(ctrs);
+        setEvents(evts);
+        setActivities(acts);
       } catch (err) {
-        console.error('Erro ao carregar dados do dashboard:', err);
-        setProjects([]);
-        setClients([]);
-        setMetrics({
-          activeClientsCount: 0,
-          inProgressProjectsCount: 0,
-          waitingClientProjectsCount: 0,
-          upcomingCount: 0,
-        });
+        console.error('Erro ao carregar dashboard:', err);
       } finally {
         setIsLoading(false);
       }
     };
-
-    loadDashboard();
+    loadData();
   }, []);
 
-  const activeClientsCount = metrics?.activeClientsCount ?? clients.filter((c) => c.status === 'Ativo').length;
-  const inProgressProjects = projects.filter(
-    (p) => p.status === 'Em produção' || p.status === 'Planejamento' || p.status === 'Revisão'
-  );
-  const inProgressProjectsCount = metrics?.inProgressProjectsCount ?? inProgressProjects.length;
-  const waitingClientProjectsCount = metrics?.waitingClientProjectsCount ?? projects.filter((p) => p.status === 'Aguardando cliente').length;
-
-  const upcomingDeliveries = [...projects]
-    .filter((p) => p.status !== 'Finalizado')
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-    .slice(0, 4);
-
-  const upcomingCount = metrics?.upcomingCount ?? upcomingDeliveries.length;
-  const recentClients = [...clients].slice(0, 5);
-
-  const formatDeliveryDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
-      return { day, month };
-    } catch {
-      return { day: '--', month: '---' };
-    }
+  // Cálculos de métricas solicitadas
+  const activeClientsCount = clients.filter((c) => c.status === 'Ativo').length;
+  const activeProjects = projects.filter((p) => p.status !== 'Finalizado');
+  const delayedTasks = tasks.filter((t) => t.status !== 'Concluída' && t.dueDate < todayStr);
+  const upcomingDeliveries = activeProjects
+    .filter((p) => p.dueDate >= todayStr)
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const activeLeadsCount = leads.filter((l) => l.status !== 'Fechado' && l.status !== 'Perdido').length;
+  const openProposalsCount = proposals.filter((p) => p.status === 'Enviada' || p.status === 'Visualizada' || p.status === 'Rascunho').length;
+  
+  const isExpiringContract = (endDate: string) => {
+    const end = new Date(endDate).getTime();
+    const diff = Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24));
+    return diff >= 0 && diff <= 30;
   };
+  const expiringContractsCount = contracts.filter((c) => c.status === 'Ativo' && isExpiringContract(c.endDate)).length;
+  const totalContractedMRR = contracts
+    .filter((c) => c.status === 'Ativo' && c.recurrence === 'Mensal')
+    .reduce((acc, c) => acc + c.value, 0);
+
+  // Seção "Hoje"
+  const todayTasks = tasks.filter((t) => t.dueDate === todayStr);
+  const todayEvents = events.filter((e) => e.date === todayStr);
+  const todayDeliveries = activeProjects.filter((p) => p.dueDate === todayStr);
+
+  // Projetos que precisam de atenção (Atrasados ou Aguardando cliente)
+  const attentionProjects = activeProjects.filter(
+    (p) => p.dueDate < todayStr || p.status === 'Aguardando cliente'
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', maxWidth: '1400px' }}>
-      {/* 1. Header Funcional */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {/* Header Funcional */}
+      <div>
         <h1
           className="font-serif"
           style={{
@@ -104,32 +125,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         >
           Dashboard
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', margin: 0, fontWeight: 450 }}>
-          Visão geral da operação da Alicerce.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', margin: '4px 0 0', fontWeight: 450 }}>
+          Central de comando operacional, entregas imediatas e saúde do negócio.
         </p>
       </div>
 
-      {/* 2. Visão Geral da Operação — Faixa Horizontal / Grid Editorial */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2
-            style={{
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              color: 'var(--sand-gold-dark)',
-              margin: 0
-            }}
-          >
-            Visão geral da operação
-          </h2>
-        </div>
+      {/* 1. Visão Geral da Operação — Grid Editorial com os 8 Indicadores Solicitados */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2
+          style={{
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.12em',
+            color: 'var(--sand-gold-dark)',
+            margin: 0
+          }}
+        >
+          Visão Geral da Operação
+        </h2>
 
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             background: '#FFFFFF',
             border: '1px solid var(--cream-border)',
             borderRadius: 'var(--radius-lg)',
@@ -137,191 +156,190 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             boxShadow: 'var(--shadow-sm)'
           }}
         >
-          {/* Indicador 1: Clientes Ativos */}
           <div
             onClick={() => onNavigate('clients')}
-            style={{
-              padding: '24px 28px',
-              borderRight: '1px solid var(--cream-border-subtle)',
-              borderBottom: '1px solid var(--cream-border-subtle)',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '16px',
-              transition: 'background var(--transition-fast)'
-            }}
-            className="editorial-indicator"
+            style={{ padding: '20px 24px', borderRight: '1px solid var(--cream-border-subtle)', borderBottom: '1px solid var(--cream-border-subtle)', cursor: 'pointer' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
-                Clientes ativos
-              </span>
-              <Users size={18} color="var(--green-primary)" />
-            </div>
-            <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
-                {activeClientsCount}
-              </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
-                contas com contrato vigente
-              </span>
-            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Clientes Ativos</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>{activeClientsCount}</div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>carteira ativa</span>
           </div>
 
-          {/* Indicador 2: Projetos em Produção */}
           <div
             onClick={() => onNavigate('projects')}
-            style={{
-              padding: '24px 28px',
-              borderRight: '1px solid var(--cream-border-subtle)',
-              borderBottom: '1px solid var(--cream-border-subtle)',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '16px',
-              transition: 'background var(--transition-fast)'
-            }}
-            className="editorial-indicator"
+            style={{ padding: '20px 24px', borderRight: '1px solid var(--cream-border-subtle)', borderBottom: '1px solid var(--cream-border-subtle)', cursor: 'pointer' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
-                Projetos em produção
-              </span>
-              <Briefcase size={18} color="var(--sand-gold-dark)" />
-            </div>
-            <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
-                {inProgressProjectsCount}
-              </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
-                em execução pela equipe
-              </span>
-            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Projetos Ativos</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>{activeProjects.length}</div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>em produção / revisão</span>
           </div>
 
-          {/* Indicador 3: Aguardando Cliente */}
           <div
-            onClick={() => onNavigate('projects')}
-            style={{
-              padding: '24px 28px',
-              borderRight: '1px solid var(--cream-border-subtle)',
-              borderBottom: '1px solid var(--cream-border-subtle)',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '16px',
-              transition: 'background var(--transition-fast)'
-            }}
-            className="editorial-indicator"
+            onClick={() => onNavigate('tasks')}
+            style={{ padding: '20px 24px', borderRight: '1px solid var(--cream-border-subtle)', borderBottom: '1px solid var(--cream-border-subtle)', cursor: 'pointer' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
-                Aguardando cliente
-              </span>
-              <Clock size={18} color="var(--status-wait-text)" />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Tarefas Atrasadas</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: delayedTasks.length > 0 ? '#DC2626' : 'var(--status-active-text)', marginTop: '4px' }}>
+              {delayedTasks.length}
             </div>
-            <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
-                {waitingClientProjectsCount}
-              </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
-                pendentes de aprovação externa
-              </span>
-            </div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>prazo ultrapassado</span>
           </div>
 
-          {/* Indicador 4: Próximas Entregas */}
           <div
-            onClick={() => onNavigate('projects')}
-            style={{
-              padding: '24px 28px',
-              borderBottom: '1px solid var(--cream-border-subtle)',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '16px',
-              transition: 'background var(--transition-fast)'
-            }}
-            className="editorial-indicator"
+            onClick={() => onNavigate('calendar')}
+            style={{ padding: '20px 24px', borderBottom: '1px solid var(--cream-border-subtle)', cursor: 'pointer' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
-                Entregas próximas
-              </span>
-              <Calendar size={18} color="var(--green-primary)" />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Entregas Próximas</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>{upcomingDeliveries.length}</div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>cronograma imediato</span>
+          </div>
+
+          <div
+            onClick={() => onNavigate('leads')}
+            style={{ padding: '20px 24px', borderRight: '1px solid var(--cream-border-subtle)', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Leads Ativos</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: 'var(--sand-gold-dark)', marginTop: '4px' }}>{activeLeadsCount}</div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>no funil comercial</span>
+          </div>
+
+          <div
+            onClick={() => onNavigate('proposals')}
+            style={{ padding: '20px 24px', borderRight: '1px solid var(--cream-border-subtle)', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Propostas Abertas</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>{openProposalsCount}</div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>aguardando aceite</span>
+          </div>
+
+          <div
+            onClick={() => onNavigate('contracts')}
+            style={{ padding: '20px 24px', borderRight: '1px solid var(--cream-border-subtle)', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Contratos Vencendo</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: expiringContractsCount > 0 ? '#B45309' : 'var(--status-active-text)', marginTop: '4px' }}>
+              {expiringContractsCount}
             </div>
-            <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
-                {upcomingCount}
-              </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
-                prazos nos próximos 15 dias
-              </span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>próximos 30 dias</span>
+          </div>
+
+          <div
+            onClick={() => onNavigate('financial')}
+            style={{ padding: '20px 24px', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 550 }}>Receita Contratada</span>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, color: 'var(--green-deep)', marginTop: '4px' }}>
+              R$ {totalContractedMRR.toLocaleString('pt-BR')}
             </div>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>MRR mensal vigente</span>
           </div>
         </div>
       </section>
 
-      {/* 3. Projetos em Andamento — Seção Aberta com Tabela Limpa */}
+      {/* 2. Seção HOJE (Tarefas, Reuniões, Entregas do Dia) */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <h2 className="font-serif" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+          Hoje
+        </h2>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '20px'
+          }}
+        >
+          {/* Tarefas de Hoje */}
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--green-deep)' }}>Tarefas para Hoje</span>
+              <span style={{ fontSize: '0.78rem', background: 'var(--cream-subtle)', padding: '2px 8px', borderRadius: '4px', fontWeight: 650 }}>
+                {todayTasks.length}
+              </span>
+            </div>
+
+            {todayTasks.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>Nenhuma tarefa com prazo para hoje.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {todayTasks.map((t) => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 550 }}>{t.title}</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t.responsible}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Reuniões e Agenda */}
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--green-deep)' }}>Reuniões & Compromissos</span>
+              <span style={{ fontSize: '0.78rem', background: 'var(--cream-subtle)', padding: '2px 8px', borderRadius: '4px', fontWeight: 650 }}>
+                {todayEvents.length}
+              </span>
+            </div>
+
+            {todayEvents.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>Nenhum compromisso na agenda hoje.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {todayEvents.map((e) => (
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 550 }}>{e.title}</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--sand-gold-dark)', fontWeight: 600 }}>{e.time}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Entregas do Dia */}
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--green-deep)' }}>Entregas Marcadas para Hoje</span>
+              <span style={{ fontSize: '0.78rem', background: 'var(--cream-subtle)', padding: '2px 8px', borderRadius: '4px', fontWeight: 650 }}>
+                {todayDeliveries.length}
+              </span>
+            </div>
+
+            {todayDeliveries.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>Nenhum projeto com entrega prevista para hoje.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {todayDeliveries.map((p) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 550 }}>{p.name} ({p.clientName})</span>
+                    <Badge status={p.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Projetos que Precisam de Atenção */}
       <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2
-              className="font-serif"
-              style={{
-                fontSize: '1.6rem',
-                fontWeight: 700,
-                color: 'var(--green-deep)',
-                margin: 0
-              }}
-            >
-              Projetos em andamento
-            </h2>
-          </div>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => onNavigate('projects')}
-            style={{ gap: '6px' }}
-          >
-            Ver todos <ArrowUpRight size={14} />
+          <h2 className="font-serif" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+            Projetos que precisam de atenção
+          </h2>
+          <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('projects')} style={{ gap: '6px' }}>
+            Ver todos os projetos <ArrowRight size={14} />
           </button>
         </div>
 
-        {inProgressProjects.length === 0 ? (
-          <div
-            style={{
-              padding: '48px 24px',
-              background: '#FFFFFF',
-              border: '1px solid var(--cream-border)',
-              borderRadius: 'var(--radius-lg)',
-              textAlign: 'center'
-            }}
-          >
-            <p style={{ fontSize: '0.96rem', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-              Nenhum projeto em andamento no momento.
+        {attentionProjects.length === 0 ? (
+          <div className="card" style={{ padding: '32px 24px', textAlign: 'center' }}>
+            <CheckCircle2 size={24} color="var(--status-active-text)" style={{ marginBottom: '8px' }} />
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem', margin: 0, fontWeight: 550 }}>
+              Operação em dia. Nenhum projeto com prazo atrasado ou travado aguardando cliente.
             </p>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => onNavigate('projects')}
-              style={{ gap: '6px', margin: '0 auto' }}
-            >
-              <Plus size={15} /> Criar projeto
-            </button>
           </div>
         ) : (
-          <div
-            style={{
-              background: '#FFFFFF',
-              border: '1px solid var(--cream-border)',
-              borderRadius: 'var(--radius-lg)',
-              overflow: 'hidden',
-              boxShadow: 'var(--shadow-sm)'
-            }}
-          >
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="desktop-table-container">
               <table className="data-table">
                 <thead>
@@ -331,280 +349,71 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                     <th>Serviço</th>
                     <th>Responsável</th>
                     <th>Prazo</th>
-                    <th>Status</th>
+                    <th>Motivo de Atenção</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {inProgressProjects.slice(0, 6).map((proj) => (
-                    <tr
-                      key={proj.id}
-                      onClick={() => onNavigate('projects', proj.id)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
-                          {proj.name}
-                        </div>
-                      </td>
-                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-                        {proj.clientName}
-                      </td>
-                      <td>
-                        <Badge status={proj.service} type="service" />
-                      </td>
-                      <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                        {proj.responsible}
-                      </td>
-                      <td style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', fontWeight: 550, color: 'var(--text-primary)' }}>
-                        {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td>
-                        <Badge status={proj.status} />
-                      </td>
-                    </tr>
-                  ))}
+                  {attentionProjects.map((p) => {
+                    const isLate = p.dueDate < todayStr;
+                    return (
+                      <tr key={p.id} onClick={() => onNavigate('projects', p.id)} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{p.name}</div>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{p.clientName}</td>
+                        <td><Badge status={p.service} type="service" /></td>
+                        <td style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{p.responsible}</td>
+                        <td style={{ fontSize: '0.88rem', fontWeight: 600, color: isLate ? '#DC2626' : 'var(--text-primary)' }}>
+                          {new Date(p.dueDate).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 650,
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              background: isLate ? '#FEE2E2' : '#FFF1EA',
+                              color: isLate ? '#B91C1C' : '#A44512'
+                            }}
+                          >
+                            {isLate ? 'Prazo ultrapassado' : 'Aguardando aprovação do cliente'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+      </section>
 
-            {/* Mobile View */}
-            <div className="mobile-cards-container" style={{ padding: '16px', display: 'none' }}>
-              {inProgressProjects.slice(0, 6).map((proj) => (
-                <div
-                  key={proj.id}
-                  onClick={() => onNavigate('projects', proj.id)}
-                  style={{
-                    padding: '16px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--cream-border)',
-                    background: 'var(--cream-subtle)',
-                    marginBottom: '10px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.98rem', color: 'var(--text-primary)' }}>
-                        {proj.name}
-                      </div>
-                      <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {proj.clientName}
-                      </div>
-                    </div>
-                    <Badge status={proj.status} />
+      {/* 4. Atividade Recente */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
+        <h2 className="font-serif" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+          Atividade Recente
+        </h2>
+
+        {activities.length === 0 ? (
+          <div className="card" style={{ padding: '32px 24px', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+              Nenhuma atividade registrada na operação ainda.
+            </p>
+          </div>
+        ) : (
+          <div className="card" style={{ padding: '20px 24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {activities.slice(0, 6).map((act) => (
+                <div key={act.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', fontSize: '0.88rem', borderBottom: '1px solid var(--cream-border-subtle)', paddingBottom: '10px' }}>
+                  <div>
+                    <span style={{ fontWeight: 650, color: 'var(--text-primary)' }}>{act.title}</span>
+                    <p style={{ color: 'var(--text-secondary)', margin: '2px 0 0', fontSize: '0.82rem' }}>{act.description}</p>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--cream-border-subtle)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    <span>Prazo: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong></span>
-                    <span>{proj.responsible}</span>
-                  </div>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{act.timestamp}</span>
                 </div>
               ))}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* 4. Entregas Próximas */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2
-              className="font-serif"
-              style={{
-                fontSize: '1.6rem',
-                fontWeight: 700,
-                color: 'var(--green-deep)',
-                margin: 0
-              }}
-            >
-              Entregas próximas
-            </h2>
-          </div>
-          <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-            Cronograma prioritário
-          </span>
-        </div>
-
-        {upcomingDeliveries.length === 0 ? (
-          <div
-            style={{
-              padding: '40px 24px',
-              background: '#FFFFFF',
-              border: '1px solid var(--cream-border)',
-              borderRadius: 'var(--radius-lg)',
-              textAlign: 'center'
-            }}
-          >
-            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', margin: 0 }}>
-              Nenhuma entrega pendente para os próximos dias.
-            </p>
-          </div>
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '16px'
-            }}
-          >
-            {upcomingDeliveries.map((proj) => {
-              const { day, month } = formatDeliveryDate(proj.dueDate);
-              return (
-                <div
-                  key={proj.id}
-                  onClick={() => onNavigate('projects', proj.id)}
-                  style={{
-                    background: '#FFFFFF',
-                    border: '1px solid var(--cream-border)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '18px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    cursor: 'pointer',
-                    boxShadow: 'var(--shadow-sm)',
-                    transition: 'border-color var(--transition-fast)'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '48px',
-                      height: '52px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--green-surface)',
-                      color: '#FFFFFF',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}
-                  >
-                    <span style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1 }}>{day}</span>
-                    <span style={{ fontSize: '0.66rem', letterSpacing: '0.08em', color: 'var(--sand-gold)', marginTop: '2px' }}>{month}</span>
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: 650,
-                        fontSize: '0.94rem',
-                        color: 'var(--text-primary)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
-                    >
-                      {proj.name}
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                      {proj.clientName} • <span style={{ color: 'var(--sand-gold-dark)', fontWeight: 600 }}>{proj.service}</span>
-                    </div>
-                  </div>
-
-                  <Badge status={proj.status} />
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* 5. Clientes Recentes */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2
-              className="font-serif"
-              style={{
-                fontSize: '1.6rem',
-                fontWeight: 700,
-                color: 'var(--green-deep)',
-                margin: 0
-              }}
-            >
-              Clientes recentes
-            </h2>
-          </div>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => onNavigate('clients')}
-            style={{ gap: '6px' }}
-          >
-            Ver carteira <ArrowRight size={14} />
-          </button>
-        </div>
-
-        {recentClients.length === 0 ? (
-          <div
-            style={{
-              padding: '48px 24px',
-              background: '#FFFFFF',
-              border: '1px solid var(--cream-border)',
-              borderRadius: 'var(--radius-lg)',
-              textAlign: 'center'
-            }}
-          >
-            <p style={{ fontSize: '0.96rem', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-              Nenhum cliente cadastrado ainda.
-            </p>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => onNavigate('clients')}
-              style={{ gap: '6px', margin: '0 auto' }}
-            >
-              <Plus size={15} /> Cadastrar cliente
-            </button>
-          </div>
-        ) : (
-          <div
-            style={{
-              background: '#FFFFFF',
-              border: '1px solid var(--cream-border)',
-              borderRadius: 'var(--radius-lg)',
-              overflow: 'hidden',
-              boxShadow: 'var(--shadow-sm)'
-            }}
-          >
-            <div className="desktop-table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Empresa</th>
-                    <th>Segmento</th>
-                    <th>Contato Principal</th>
-                    <th>Cidade / UF</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentClients.map((client) => (
-                    <tr
-                      key={client.id}
-                      onClick={() => onNavigate('clients', client.id)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>
-                        <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
-                          {client.companyName}
-                        </div>
-                      </td>
-                      <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                        {client.segment}
-                      </td>
-                      <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                        {client.contactName}
-                      </td>
-                      <td style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-                        {client.city ? `${client.city}/${client.state || ''}` : '—'}
-                      </td>
-                      <td>
-                        <Badge status={client.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         )}

@@ -531,3 +531,300 @@ insert into public.brand_assets (type, name, description, value) values
   ('positioning', 'Manifesto Alicerce', 'Frase institucional de posicionamento', 'A Alicerce estrutura marcas, presença, aquisição e comunicação para negócios que querem crescer com base.'),
   ('voice', 'Tom de Voz', 'Pilares de comunicação da Alicerce', 'Estratégico, Maduro, Confiável, Direto, Sem rodeios')
 on conflict do nothing;
+
+-- ==============================================================================
+-- FASE 2: ALICERCE OS — NOVAS TABELAS OPERACIONAIS, COMERCIAIS E DE GESTÃO
+-- ==============================================================================
+
+-- 21. TABELA DE TAREFAS (tasks)
+create table if not exists public.tasks (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text default '',
+  project_id uuid references public.projects(id) on delete set null,
+  client_id uuid references public.clients(id) on delete set null,
+  responsible text not null default 'Equipe Alicerce',
+  priority text not null default 'Média' check (priority in ('Baixa', 'Média', 'Alta', 'Urgente')),
+  status text not null default 'Pendente' check (status in ('Pendente', 'Em andamento', 'Aguardando', 'Concluída')),
+  due_date date not null default current_date,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trigger_tasks_updated_at on public.tasks;
+create trigger trigger_tasks_updated_at
+  before update on public.tasks
+  for each row execute function public.handle_updated_at();
+
+-- 22. TABELA DE EVENTOS DE AGENDA (calendar_events)
+create table if not exists public.calendar_events (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  date date not null default current_date,
+  time text default '10:00',
+  type text not null default 'Reunião' check (type in ('Entrega', 'Tarefa', 'Reunião', 'Follow-up', 'Contrato', 'Financeiro', 'Aprovação', 'Outro')),
+  responsible text not null default 'Equipe Alicerce',
+  client_id uuid references public.clients(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete cascade,
+  notes text default '',
+  created_at timestamptz not null default now()
+);
+
+-- 23. TABELA DE APROVAÇÕES DE MATERIAIS (approvals)
+create table if not exists public.approvals (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  client_id uuid references public.clients(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete set null,
+  type text not null default 'Criativo',
+  file_url text,
+  external_link text,
+  responsible text not null default 'Equipe Alicerce',
+  date date not null default current_date,
+  notes text default '',
+  feedback text default '',
+  status text not null default 'Aguardando aprovação' check (status in ('Aguardando aprovação', 'Aprovado', 'Alterações solicitadas', 'Rejeitado')),
+  history jsonb default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trigger_approvals_updated_at on public.approvals;
+create trigger trigger_approvals_updated_at
+  before update on public.approvals
+  for each row execute function public.handle_updated_at();
+
+-- 24. TABELA DE LEADS COMERCIAIS (leads)
+create table if not exists public.leads (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  company text not null,
+  phone text default '',
+  whatsapp text default '',
+  email text default '',
+  service_of_interest text not null default 'Meta Ads',
+  origin text not null default 'Instagram' check (origin in ('Instagram', 'Meta Ads', 'Google Ads', 'Indicação', 'Site', 'WhatsApp', 'Orgânico', 'Outro')),
+  estimated_value numeric(12, 2) not null default 0,
+  responsible text not null default 'Equipe Alicerce',
+  status text not null default 'Novo lead' check (status in ('Novo lead', 'Contato realizado', 'Diagnóstico', 'Proposta', 'Negociação', 'Fechado', 'Perdido')),
+  next_follow_up date,
+  notes text default '',
+  entry_date date not null default current_date,
+  converted_client_id uuid references public.clients(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trigger_leads_updated_at on public.leads;
+create trigger trigger_leads_updated_at
+  before update on public.leads
+  for each row execute function public.handle_updated_at();
+
+-- 25. TABELA DE PROPOSTAS COMERCIAIS (proposals)
+create table if not exists public.proposals (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  client_id uuid references public.clients(id) on delete set null,
+  lead_id uuid references public.leads(id) on delete set null,
+  description text default '',
+  services text[] default '{}',
+  items jsonb default '[]'::jsonb,
+  subtotal numeric(12, 2) not null default 0,
+  discount numeric(12, 2) not null default 0,
+  total numeric(12, 2) not null default 0,
+  deadline text default '15 dias úteis',
+  valid_until date not null default (current_date + interval '15 days'),
+  notes text default '',
+  status text not null default 'Rascunho' check (status in ('Rascunho', 'Enviada', 'Visualizada', 'Aprovada', 'Recusada', 'Expirada')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trigger_proposals_updated_at on public.proposals;
+create trigger trigger_proposals_updated_at
+  before update on public.proposals
+  for each row execute function public.handle_updated_at();
+
+-- 26. TABELA DE CONTRATOS (contracts)
+create table if not exists public.contracts (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid references public.clients(id) on delete cascade,
+  service text not null default 'Meta Ads',
+  value numeric(12, 2) not null default 0,
+  recurrence text not null default 'Mensal' check (recurrence in ('Mensal', 'Trimestral', 'Semestral', 'Anual', 'Pontual')),
+  start_date date not null default current_date,
+  end_date date not null default (current_date + interval '180 days'),
+  auto_renew boolean not null default true,
+  status text not null default 'Ativo' check (status in ('Rascunho', 'Ativo', 'Vencendo', 'Encerrado', 'Cancelado')),
+  file_url text,
+  notes text default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trigger_contracts_updated_at on public.contracts;
+create trigger trigger_contracts_updated_at
+  before update on public.contracts
+  for each row execute function public.handle_updated_at();
+
+-- 27. TABELA DE RECEBÍVEIS FINANCEIROS (financial_entries)
+create table if not exists public.financial_entries (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid references public.clients(id) on delete cascade,
+  contract_id uuid references public.contracts(id) on delete set null,
+  description text not null,
+  value numeric(12, 2) not null default 0,
+  due_date date not null default current_date,
+  payment_date date,
+  status text not null default 'Pendente' check (status in ('Pendente', 'Pago', 'Atrasado', 'Cancelado')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trigger_financial_updated_at on public.financial_entries;
+create trigger trigger_financial_updated_at
+  before update on public.financial_entries
+  for each row execute function public.handle_updated_at();
+
+-- 28. TABELA DE PLANEJAMENTO DE CONTEÚDO (content_items)
+create table if not exists public.content_items (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  pauta text default '',
+  pillar text not null default 'Institucional' check (pillar in ('Notícia / Atualidade', 'Curiosidade / Case', 'Educação', 'Institucional')),
+  format text not null default 'Carrossel' check (format in ('Carrossel', 'Reels', 'Post Estático', 'Story', 'Vídeo', 'Artigo')),
+  responsible text not null default 'Equipe Alicerce',
+  client_id uuid references public.clients(id) on delete set null,
+  script text default '',
+  caption text default '',
+  scheduled_date date not null default current_date,
+  status text not null default 'Ideia' check (status in ('Ideia', 'Roteiro', 'Design', 'Revisão', 'Aprovado', 'Publicado')),
+  files text[] default '{}',
+  external_link text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trigger_content_updated_at on public.content_items;
+create trigger trigger_content_updated_at
+  before update on public.content_items
+  for each row execute function public.handle_updated_at();
+
+-- 29. TABELA DE COMENTÁRIOS INTERNOS (comments)
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  entity_type text not null check (entity_type in ('client', 'project', 'task', 'approval', 'lead')),
+  entity_id text not null,
+  user_name text not null default 'Wesley Nunes',
+  user_id uuid references auth.users(id) on delete set null,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
+-- 30. TABELA DE LINKS RÁPIDOS (quick_links)
+create table if not exists public.quick_links (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid references public.clients(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete cascade,
+  title text not null,
+  url text not null,
+  category text not null default 'Drive',
+  created_at timestamptz not null default now()
+);
+
+-- ==============================================================================
+-- 31. ÍNDICES DE PERFORMANCE DA FASE 2
+-- ==============================================================================
+create index if not exists idx_tasks_client on public.tasks(client_id);
+create index if not exists idx_tasks_project on public.tasks(project_id);
+create index if not exists idx_tasks_due on public.tasks(due_date);
+create index if not exists idx_tasks_status on public.tasks(status);
+
+create index if not exists idx_calendar_date on public.calendar_events(date);
+create index if not exists idx_approvals_client on public.approvals(client_id);
+create index if not exists idx_approvals_status on public.approvals(status);
+
+create index if not exists idx_leads_status on public.leads(status);
+create index if not exists idx_contracts_client on public.contracts(client_id);
+create index if not exists idx_contracts_status on public.contracts(status);
+create index if not exists idx_contracts_end_date on public.contracts(end_date);
+
+create index if not exists idx_financial_due on public.financial_entries(due_date);
+create index if not exists idx_financial_status on public.financial_entries(status);
+create index if not exists idx_content_status on public.content_items(status);
+create index if not exists idx_comments_entity on public.comments(entity_type, entity_id);
+
+-- ==============================================================================
+-- 32. POLÍTICAS DE RLS PARA TABELAS DA FASE 2
+-- ==============================================================================
+alter table public.tasks enable row level security;
+alter table public.calendar_events enable row level security;
+alter table public.approvals enable row level security;
+alter table public.leads enable row level security;
+alter table public.proposals enable row level security;
+alter table public.contracts enable row level security;
+alter table public.financial_entries enable row level security;
+alter table public.content_items enable row level security;
+alter table public.comments enable row level security;
+alter table public.quick_links enable row level security;
+
+-- TASKS
+drop policy if exists "Usuários autenticados podem ver tarefas" on public.tasks;
+create policy "Usuários autenticados podem ver tarefas" on public.tasks for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar tarefas" on public.tasks;
+create policy "Usuários autenticados podem gerenciar tarefas" on public.tasks for all to authenticated using (true) with check (true);
+
+-- CALENDAR
+drop policy if exists "Usuários autenticados podem ver eventos" on public.calendar_events;
+create policy "Usuários autenticados podem ver eventos" on public.calendar_events for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar eventos" on public.calendar_events;
+create policy "Usuários autenticados podem gerenciar eventos" on public.calendar_events for all to authenticated using (true) with check (true);
+
+-- APPROVALS
+drop policy if exists "Usuários autenticados podem ver aprovações" on public.approvals;
+create policy "Usuários autenticados podem ver aprovações" on public.approvals for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar aprovações" on public.approvals;
+create policy "Usuários autenticados podem gerenciar aprovações" on public.approvals for all to authenticated using (true) with check (true);
+
+-- LEADS
+drop policy if exists "Usuários autenticados podem ver leads" on public.leads;
+create policy "Usuários autenticados podem ver leads" on public.leads for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar leads" on public.leads;
+create policy "Usuários autenticados podem gerenciar leads" on public.leads for all to authenticated using (true) with check (true);
+
+-- PROPOSALS
+drop policy if exists "Usuários autenticados podem ver propostas" on public.proposals;
+create policy "Usuários autenticados podem ver propostas" on public.proposals for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar propostas" on public.proposals;
+create policy "Usuários autenticados podem gerenciar propostas" on public.proposals for all to authenticated using (true) with check (true);
+
+-- CONTRACTS
+drop policy if exists "Usuários autenticados podem ver contratos" on public.contracts;
+create policy "Usuários autenticados podem ver contratos" on public.contracts for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar contratos" on public.contracts;
+create policy "Usuários autenticados podem gerenciar contratos" on public.contracts for all to authenticated using (true) with check (true);
+
+-- FINANCIAL
+drop policy if exists "Usuários autenticados podem ver financeiro" on public.financial_entries;
+create policy "Usuários autenticados podem ver financeiro" on public.financial_entries for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar financeiro" on public.financial_entries;
+create policy "Usuários autenticados podem gerenciar financeiro" on public.financial_entries for all to authenticated using (true) with check (true);
+
+-- CONTENT
+drop policy if exists "Usuários autenticados podem ver conteudo" on public.content_items;
+create policy "Usuários autenticados podem ver conteudo" on public.content_items for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar conteudo" on public.content_items;
+create policy "Usuários autenticados podem gerenciar conteudo" on public.content_items for all to authenticated using (true) with check (true);
+
+-- COMMENTS
+drop policy if exists "Usuários autenticados podem ver comentários" on public.comments;
+create policy "Usuários autenticados podem ver comentários" on public.comments for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem criar comentários" on public.comments;
+create policy "Usuários autenticados podem criar comentários" on public.comments for all to authenticated using (true) with check (true);
+
+-- QUICK LINKS
+drop policy if exists "Usuários autenticados podem ver links rápidos" on public.quick_links;
+create policy "Usuários autenticados podem ver links rápidos" on public.quick_links for select to authenticated using (true);
+drop policy if exists "Usuários autenticados podem gerenciar links rápidos" on public.quick_links;
+create policy "Usuários autenticados podem gerenciar links rápidos" on public.quick_links for all to authenticated using (true) with check (true);

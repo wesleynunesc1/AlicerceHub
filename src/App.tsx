@@ -9,8 +9,19 @@ import { RegisterPage } from './pages/Register/RegisterPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { ClientsPage } from './pages/Clients/ClientsPage';
 import { ProjectsPage } from './pages/Projects/ProjectsPage';
+import { TasksPage } from './pages/Tasks/TasksPage';
+import { CalendarPage } from './pages/Calendar/CalendarPage';
+import { ApprovalsPage } from './pages/Approvals/ApprovalsPage';
+import { LeadsPage } from './pages/Leads/LeadsPage';
+import { ProposalsPage } from './pages/Proposals/ProposalsPage';
+import { ContractsPage } from './pages/Contracts/ContractsPage';
+import { FinancialPage } from './pages/Financial/FinancialPage';
 import { ProcessesPage } from './pages/Processes/ProcessesPage';
+import { TemplatesPage } from './pages/Templates/TemplatesPage';
 import { MaterialsPage } from './pages/Materials/MaterialsPage';
+import { ReportsPage } from './pages/Reports/ReportsPage';
+import { TeamPage } from './pages/Team/TeamPage';
+import { ContentPage } from './pages/Content/ContentPage';
 import { BrandCenterPage } from './pages/BrandCenter/BrandCenterPage';
 import { ProfilePage } from './pages/Profile/ProfilePage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
@@ -21,8 +32,19 @@ const tabToPath = (tab: NavTab): string => {
     case 'dashboard': return '/dashboard';
     case 'clients': return '/clientes';
     case 'projects': return '/projetos';
+    case 'tasks': return '/tarefas';
+    case 'calendar': return '/agenda';
+    case 'approvals': return '/aprovacoes';
+    case 'leads': return '/leads';
+    case 'proposals': return '/propostas';
+    case 'contracts': return '/contratos';
+    case 'financial': return '/financeiro';
     case 'processes': return '/processos';
+    case 'templates': return '/templates';
     case 'materials': return '/materiais';
+    case 'reports': return '/relatorios';
+    case 'team': return '/equipe';
+    case 'content': return '/conteudo';
     case 'brand-center': return '/brand-center';
     case 'profile': return '/perfil';
     case 'settings': return '/configuracoes';
@@ -35,8 +57,19 @@ const pathToTab = (pathname: string): NavTab => {
   if (!clean || clean === 'dashboard') return 'dashboard';
   if (clean === 'clientes' || clean === 'clients') return 'clients';
   if (clean === 'projetos' || clean === 'projects') return 'projects';
+  if (clean === 'tarefas' || clean === 'tasks') return 'tasks';
+  if (clean === 'agenda' || clean === 'calendar') return 'calendar';
+  if (clean === 'aprovacoes' || clean === 'approvals') return 'approvals';
+  if (clean === 'leads' || clean === 'comercial') return 'leads';
+  if (clean === 'propostas' || clean === 'proposals') return 'proposals';
+  if (clean === 'contratos' || clean === 'contracts') return 'contracts';
+  if (clean === 'financeiro' || clean === 'financial') return 'financial';
   if (clean === 'processos' || clean === 'processes') return 'processes';
+  if (clean === 'templates') return 'templates';
   if (clean === 'materiais' || clean === 'materials') return 'materials';
+  if (clean === 'relatorios' || clean === 'reports') return 'reports';
+  if (clean === 'equipe' || clean === 'team') return 'team';
+  if (clean === 'conteudo' || clean === 'content') return 'content';
   if (clean === 'brand-center' || clean === 'brand') return 'brand-center';
   if (clean === 'perfil' || clean === 'profile') return 'profile';
   if (clean === 'configuracoes' || clean === 'settings') return 'settings';
@@ -63,7 +96,6 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     db.init();
 
-    // 1. Sincroniza navegação de histórico do navegador (botão voltar/avançar e F5)
     const handlePopState = () => {
       const isCadastro = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro';
       setAuthMode(isCadastro ? 'register' : 'login');
@@ -72,7 +104,6 @@ const MainApp: React.FC = () => {
     };
     window.addEventListener('popstate', handlePopState);
 
-    // 2. Verifica sessão existente no Supabase Auth
     authService.getSession().then((session) => {
       if (session?.user) {
         setIsAuthenticated(true);
@@ -80,7 +111,6 @@ const MainApp: React.FC = () => {
       }
     });
 
-    // 3. Monitora mudanças de estado de autenticação em tempo real
     const { data: authListener } = authService.onAuthStateChange((session, profile) => {
       if (session?.user) {
         setIsAuthenticated(true);
@@ -182,6 +212,20 @@ const MainApp: React.FC = () => {
         />
       )}
 
+      {currentTab === 'tasks' && <TasksPage />}
+
+      {currentTab === 'calendar' && <CalendarPage />}
+
+      {currentTab === 'approvals' && <ApprovalsPage />}
+
+      {currentTab === 'leads' && <LeadsPage />}
+
+      {currentTab === 'proposals' && <ProposalsPage />}
+
+      {currentTab === 'contracts' && <ContractsPage />}
+
+      {currentTab === 'financial' && <FinancialPage />}
+
       {currentTab === 'processes' && (
         <ProcessesPage
           selectedProcessId={targetId}
@@ -189,12 +233,20 @@ const MainApp: React.FC = () => {
         />
       )}
 
+      {currentTab === 'templates' && <TemplatesPage />}
+
       {currentTab === 'materials' && (
         <MaterialsPage
           selectedMaterialId={targetId}
           onClearSelectedMaterial={() => setTargetId(undefined)}
         />
       )}
+
+      {currentTab === 'reports' && <ReportsPage />}
+
+      {currentTab === 'team' && <TeamPage />}
+
+      {currentTab === 'content' && <ContentPage />}
 
       {currentTab === 'brand-center' && <BrandCenterPage />}
 

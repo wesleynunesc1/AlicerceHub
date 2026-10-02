@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../../components/Common/Modal';
 import { Badge } from '../../components/Common/Badge';
-import { Client, Project, Material, ServiceType } from '../../types';
+import { Client, Project, Material, ServiceType, OnboardingCheckItem, QuickLink, InternalComment } from '../../types';
 import { db } from '../../services/db';
+import { phase2Service } from '../../services/phase2';
 import {
   Mail,
   Phone,
   FolderOpen,
-  ExternalLink
+  ExternalLink,
+  CheckSquare,
+  Square,
+  Plus,
+  Trash2,
+  Send,
+  MessageSquare,
+  Link as LinkIcon
 } from 'lucide-react';
 
 interface ClientDetailModalProps {
@@ -19,7 +27,7 @@ interface ClientDetailModalProps {
   onNavigateToMaterial?: (materialId: string) => void;
 }
 
-type TabType = 'overview' | 'projects' | 'materials' | 'info';
+type TabType = 'overview' | 'projects' | 'materials' | 'onboarding' | 'links' | 'comments' | 'info';
 
 export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   client,
@@ -30,11 +38,73 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   onNavigateToMaterial
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [onboardingItems, setOnboardingItems] = useState<OnboardingCheckItem[]>([]);
+  const [offboardingItems, setOffboardingItems] = useState<OnboardingCheckItem[]>([]);
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+  const [comments, setComments] = useState<InternalComment[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [newLinkTitle, setNewLinkTitle] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newLinkCat, setNewLinkCat] = useState<QuickLink['category']>('Drive');
+
+  useEffect(() => {
+    if (client) {
+      setOnboardingItems(phase2Service.getOnboarding(client.id));
+      setOffboardingItems(phase2Service.getOffboarding(client.id));
+      setQuickLinks(phase2Service.getQuickLinks(client.id));
+      setComments(phase2Service.getComments('client', client.id));
+    }
+  }, [client]);
 
   if (!client) return null;
 
   const projects = db.getProjects().filter((p) => p.clientId === client.id);
   const materials = db.getMaterials();
+
+  const handleToggleOnboarding = (key: string) => {
+    const updated = phase2Service.toggleOnboardingItem(client.id, key, 'Wesley Nunes');
+    setOnboardingItems(updated);
+  };
+
+  const handleToggleOffboarding = (key: string) => {
+    const updated = phase2Service.toggleOffboardingItem(client.id, key, 'Wesley Nunes');
+    setOffboardingItems(updated);
+  };
+
+  const handleAddQuickLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
+    const added = phase2Service.saveQuickLink({
+      clientId: client.id,
+      title: newLinkTitle,
+      url: newLinkUrl,
+      category: newLinkCat
+    });
+    setQuickLinks([...quickLinks, added]);
+    setNewLinkTitle('');
+    setNewLinkUrl('');
+  };
+
+  const handleDeleteQuickLink = (id: string) => {
+    phase2Service.deleteQuickLink(id);
+    setQuickLinks(quickLinks.filter((l) => l.id !== id));
+  };
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim()) return;
+    const added = phase2Service.addComment({
+      entityType: 'client',
+      entityId: client.id,
+      userName: 'Wesley Nunes',
+      content: newCommentText
+    });
+    setComments([added, ...comments]);
+    setNewCommentText('');
+  };
+
+  const completedOnboardingCount = onboardingItems.filter((i) => i.completed).length;
+  const onboardingProgress = Math.round((completedOnboardingCount / (onboardingItems.length || 1)) * 100);
 
   return (
     <Modal
@@ -42,7 +112,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       onClose={onClose}
       title={client.companyName}
       subtitle={`Segmento: ${client.segment} • Início em ${new Date(client.startDate).toLocaleDateString('pt-BR')}`}
-      maxWidth="780px"
+      maxWidth="820px"
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -120,23 +190,27 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           display: 'flex',
           borderBottom: '1px solid var(--cream-border)',
           marginBottom: '20px',
-          gap: '4px'
+          gap: '4px',
+          overflowX: 'auto'
         }}
       >
         {(
           [
             { id: 'overview', label: 'Visão Geral' },
             { id: 'projects', label: `Projetos (${projects.length})` },
-            { id: 'materials', label: 'Materiais' },
-            { id: 'info', label: 'Informações Cadastrais' }
+            { id: 'onboarding', label: `Onboarding (${onboardingProgress}%)` },
+            { id: 'links', label: `Links Rápidos (${quickLinks.length})` },
+            { id: 'comments', label: `Comentários (${comments.length})` },
+            { id: 'info', label: 'Cadastro' }
           ] as { id: TabType; label: string }[]
         ).map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
             style={{
-              padding: '10px 16px',
-              fontSize: '0.88rem',
+              padding: '10px 14px',
+              fontSize: '0.86rem',
+              whiteSpace: 'nowrap',
               fontWeight: activeTab === t.id ? 700 : 500,
               color: activeTab === t.id ? 'var(--green-primary)' : 'var(--text-secondary)',
               borderBottom: activeTab === t.id ? '2px solid var(--green-primary)' : '2px solid transparent',
@@ -151,7 +225,6 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       {/* TAB 1: VISÃO GERAL */}
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Services list */}
           <div>
             <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
               Serviços Contratados
@@ -176,7 +249,6 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Account manager & Start date */}
           <div
             style={{
               display: 'grid',
@@ -198,135 +270,274 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Data de Entrada
+                Status de Onboarding
               </div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '4px' }}>
-                {new Date(client.startDate).toLocaleDateString('pt-BR')}
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--sand-gold-dark)', marginTop: '4px' }}>
+                {onboardingProgress}% concluído
               </div>
             </div>
+          </div>
 
+          {client.notes && (
             <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                Projetos Ativos
-              </div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--green-primary)', marginTop: '4px' }}>
-                {projects.filter((p) => p.status !== 'Finalizado').length} em andamento
-              </div>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+                Observações Operacionais
+              </span>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '6px', lineHeight: 1.5 }}>
+                {client.notes}
+              </p>
             </div>
-          </div>
-
-          {/* Observações importantes */}
-          <div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-              Observações Estratégicas
-            </span>
-            <div
-              style={{
-                marginTop: '8px',
-                padding: '14px 16px',
-                background: 'var(--cream-subtle)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--text-secondary)',
-                fontSize: '0.88rem',
-                lineHeight: 1.5,
-                borderLeft: '3px solid var(--sand-gold)'
-              }}
-            >
-              {client.notes || 'Nenhuma observação interna cadastrada para este cliente.'}
-            </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* TAB 2: PROJETOS */}
       {activeTab === 'projects' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div>
           {projects.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)' }}>
-              Nenhum projeto vinculado a este cliente no momento.
-            </div>
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
+              Nenhum projeto cadastrado para este cliente.
+            </p>
           ) : (
-            projects.map((proj) => (
-              <div
-                key={proj.id}
-                onClick={() => {
-                  if (onNavigateToProject) {
-                    onClose();
-                    onNavigateToProject(proj.id);
-                  }
-                }}
-                style={{
-                  padding: '16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--cream-border)',
-                  background: 'var(--cream-card)',
-                  cursor: 'pointer',
-                  transition: 'all var(--transition-fast)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                    {proj.name}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {projects.map((proj) => (
+                <div
+                  key={proj.id}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--cream-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.94rem' }}>{proj.name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Entrega: {new Date(proj.dueDate).toLocaleDateString('pt-BR')} • {proj.service}
+                    </div>
                   </div>
                   <Badge status={proj.status} />
                 </div>
-                <div style={{ display: 'flex', gap: '16px', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                  <span>Serviço: <strong>{proj.service}</strong></span>
-                  <span>Responsável: <strong>{proj.responsible}</strong></span>
-                  <span>Prazo: <strong>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong></span>
-                </div>
-                <div className="progress-bar-container">
-                  <div className="progress-bar-fill" style={{ width: `${proj.progress}%` }} />
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}
 
-      {/* TAB 3: MATERIAIS */}
-      {activeTab === 'materials' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Documentos, contratos e templates aplicáveis à operação de {client.companyName}:
-          </p>
-
-          {materials.slice(0, 4).map((mat) => (
-            <div
-              key={mat.id}
-              onClick={() => {
-                if (onNavigateToMaterial) {
-                  onClose();
-                  onNavigateToMaterial(mat.id);
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--cream-border)',
-                background: 'var(--cream-subtle)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <FolderOpen size={18} color="var(--green-primary)" />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{mat.title}</div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    {mat.category} • Atualizado em {new Date(mat.updatedAt).toLocaleDateString('pt-BR')}
-                  </div>
-                </div>
-              </div>
-              <ExternalLink size={16} color="var(--text-muted)" />
+      {/* TAB 3: ONBOARDING & OFFBOARDING */}
+      {activeTab === 'onboarding' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Onboarding Checklist */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--green-deep)' }}>
+                Checklist de Onboarding
+              </span>
+              <span style={{ fontSize: '0.84rem', fontWeight: 650, color: 'var(--sand-gold-dark)' }}>
+                {completedOnboardingCount} de {onboardingItems.length} ({onboardingProgress}%)
+              </span>
             </div>
-          ))}
+
+            <div style={{ height: '6px', background: 'var(--cream-subtle)', borderRadius: '3px', overflow: 'hidden', marginBottom: '16px' }}>
+              <div style={{ width: `${onboardingProgress}%`, height: '100%', background: 'var(--green-primary)', transition: 'width 0.3s ease' }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {onboardingItems.map((item) => (
+                <div
+                  key={item.key}
+                  onClick={() => handleToggleOnboarding(item.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: item.completed ? 'var(--cream-subtle)' : '#FFFFFF',
+                    border: '1px solid var(--cream-border)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {item.completed ? (
+                    <CheckSquare size={18} color="var(--status-active-text)" />
+                  ) : (
+                    <Square size={18} color="var(--text-muted)" />
+                  )}
+                  <span style={{ fontSize: '0.9rem', color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: item.completed ? 'line-through' : 'none' }}>
+                    {item.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Offboarding Checklist */}
+          <div style={{ paddingTop: '16px', borderTop: '1px solid var(--cream-border)' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--green-deep)', display: 'block', marginBottom: '12px' }}>
+              Checklist de Encerramento (Offboarding)
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {offboardingItems.map((item) => (
+                <div
+                  key={item.key}
+                  onClick={() => handleToggleOffboarding(item.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: item.completed ? 'var(--cream-subtle)' : '#FFFFFF',
+                    border: '1px solid var(--cream-border)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {item.completed ? (
+                    <CheckSquare size={18} color="var(--status-active-text)" />
+                  ) : (
+                    <Square size={18} color="var(--text-muted)" />
+                  )}
+                  <span style={{ fontSize: '0.9rem', color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: item.completed ? 'line-through' : 'none' }}>
+                    {item.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* TAB 4: INFORMAÇÕES CADASTRAIS */}
+      {/* TAB 4: LINKS RÁPIDOS */}
+      {activeTab === 'links' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <form onSubmit={handleAddQuickLink} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              className="form-input"
+              style={{ flex: 1, minWidth: '160px' }}
+              placeholder="Título (Ex: Pasta no Google Drive)"
+              value={newLinkTitle}
+              onChange={(e) => setNewLinkTitle(e.target.value)}
+              required
+            />
+            <input
+              type="url"
+              className="form-input"
+              style={{ flex: 2, minWidth: '220px' }}
+              placeholder="https://drive.google.com/..."
+              value={newLinkUrl}
+              onChange={(e) => setNewLinkUrl(e.target.value)}
+              required
+            />
+            <button type="submit" className="btn btn-primary" style={{ gap: '6px' }}>
+              <Plus size={16} /> Adicionar Link
+            </button>
+          </form>
+
+          {quickLinks.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
+              Nenhum link rápido cadastrado para este cliente.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {quickLinks.map((link) => (
+                <div
+                  key={link.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--cream-border)',
+                    background: '#FFFFFF'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <LinkIcon size={16} color="var(--green-primary)" />
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{link.title}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '4px 10px', gap: '4px', fontSize: '0.78rem' }}
+                    >
+                      Acessar <ExternalLink size={12} />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteQuickLink(link.id)}
+                      style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', padding: '4px' }}
+                      title="Remover link"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 5: COMENTÁRIOS INTERNOS */}
+      {activeTab === 'comments' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <form onSubmit={handleAddComment} style={{ display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Escreva uma anotação interna sobre este cliente..."
+              value={newCommentText}
+              onChange={(e) => setNewCommentText(e.target.value)}
+              required
+            />
+            <button type="submit" className="btn btn-primary" style={{ gap: '6px' }}>
+              <Send size={15} /> Registrar
+            </button>
+          </form>
+
+          {comments.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
+              Nenhuma anotação registrada ainda.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {comments.map((c) => (
+                <div
+                  key={c.id}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--cream-subtle)',
+                    border: '1px solid var(--cream-border)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 650, fontSize: '0.86rem', color: 'var(--green-deep)' }}>
+                      {c.userName}
+                    </span>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      {new Date(c.createdAt).toLocaleDateString('pt-BR')} às {new Date(c.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-primary)', margin: 0, lineHeight: 1.45 }}>
+                    {c.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 6: INFORMAÇÕES CADASTRAIS */}
       {activeTab === 'info' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="form-row">

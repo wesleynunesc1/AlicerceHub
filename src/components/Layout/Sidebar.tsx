@@ -1,16 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Users,
   Briefcase,
+  CheckSquare,
+  Calendar,
+  FileCheck,
+  TrendingUp,
+  FileText,
+  FileCheck2,
+  DollarSign,
   GitMerge,
+  Layers,
   FolderOpen,
+  BarChart3,
+  UserCheck,
   Sparkles,
   Settings,
   User,
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X
 } from 'lucide-react';
 
@@ -18,11 +29,31 @@ export type NavTab =
   | 'dashboard'
   | 'clients'
   | 'projects'
+  | 'tasks'
+  | 'calendar'
+  | 'approvals'
+  | 'leads'
+  | 'proposals'
+  | 'contracts'
+  | 'financial'
   | 'processes'
+  | 'templates'
   | 'materials'
+  | 'reports'
+  | 'team'
+  | 'content'
   | 'brand-center'
   | 'settings'
   | 'profile';
+
+interface NavGroup {
+  title: string;
+  items: {
+    id: NavTab;
+    label: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+  }[];
+}
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -43,18 +74,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onLogout
 }) => {
-  const mainNavItems = [
-    { id: 'dashboard' as NavTab, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'clients' as NavTab, label: 'Clientes', icon: Users },
-    { id: 'projects' as NavTab, label: 'Projetos', icon: Briefcase },
-    { id: 'processes' as NavTab, label: 'Processos', icon: GitMerge },
-    { id: 'materials' as NavTab, label: 'Materiais', icon: FolderOpen },
-    { id: 'brand-center' as NavTab, label: 'Brand Center', icon: Sparkles }
-  ];
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const footerNavItems = [
-    { id: 'settings' as NavTab, label: 'Configurações', icon: Settings },
-    { id: 'profile' as NavTab, label: 'Perfil', icon: User }
+  const toggleGroup = (title: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
+
+  const navGroups: NavGroup[] = [
+    {
+      title: 'Operação',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'clients', label: 'Clientes', icon: Users },
+        { id: 'projects', label: 'Projetos', icon: Briefcase },
+        { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
+        { id: 'calendar', label: 'Agenda', icon: Calendar },
+        { id: 'approvals', label: 'Aprovações', icon: FileCheck }
+      ]
+    },
+    {
+      title: 'Comercial',
+      items: [
+        { id: 'leads', label: 'Leads', icon: TrendingUp },
+        { id: 'proposals', label: 'Propostas', icon: FileText },
+        { id: 'contracts', label: 'Contratos', icon: FileCheck2 },
+        { id: 'financial', label: 'Financeiro', icon: DollarSign }
+      ]
+    },
+    {
+      title: 'Gestão',
+      items: [
+        { id: 'processes', label: 'Processos', icon: GitMerge },
+        { id: 'templates', label: 'Templates', icon: Layers },
+        { id: 'materials', label: 'Materiais', icon: FolderOpen },
+        { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+        { id: 'team', label: 'Equipe', icon: UserCheck }
+      ]
+    },
+    {
+      title: 'Marca',
+      items: [
+        { id: 'content', label: 'Conteúdo', icon: Sparkles },
+        { id: 'brand-center', label: 'Brand Center', icon: Sparkles }
+      ]
+    }
   ];
 
   const handleNavClick = (tab: NavTab) => {
@@ -76,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isMobileOpen ? 'mobile-open' : ''
         }`}
       >
-        {/* Top Header - ONLY official Alicerce Logo, no typed text */}
+        {/* Top Header - ONLY official Alicerce Logo */}
         <div className="sidebar-header">
           <div
             className="sidebar-logo-container"
@@ -99,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* Minimal discreet desktop collapse control */}
+          {/* Minimalist discreet desktop collapse control */}
           <button
             type="button"
             className="sidebar-collapse-toggle"
@@ -123,50 +186,102 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Main Navigation */}
-        <nav className="sidebar-nav">
-          {mainNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
+        {/* Grouped Navigation */}
+        <nav className="sidebar-nav" style={{ overflowY: 'auto', paddingBottom: '20px' }}>
+          {navGroups.map((group) => {
+            const isGroupCollapsed = Boolean(collapsedGroups[group.title]);
             return (
-              <button
-                key={item.id}
-                type="button"
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => handleNavClick(item.id)}
-                data-tooltip={item.label}
-              >
-                <div className="nav-item-icon">
-                  <Icon size={19} />
-                </div>
-                {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
-              </button>
+              <div key={group.title} className="sidebar-nav-group" style={{ marginBottom: isCollapsed ? '8px' : '14px' }}>
+                {!isCollapsed && (
+                  <div
+                    onClick={() => toggleGroup(group.title)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 14px 4px',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.14em',
+                        color: 'var(--sand-gold-light)',
+                        opacity: 0.85
+                      }}
+                    >
+                      {group.title}
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      color="var(--sand-gold-light)"
+                      style={{
+                        transform: isGroupCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s ease',
+                        opacity: 0.6
+                      }}
+                    />
+                  </div>
+                )}
+
+                {!isGroupCollapsed && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = currentTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`nav-item ${isActive ? 'active' : ''}`}
+                          onClick={() => handleNavClick(item.id)}
+                          data-tooltip={item.label}
+                        >
+                          <div className="nav-item-icon">
+                            <Icon size={18} />
+                          </div>
+                          {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
 
-        {/* Separator & Footer Navigation */}
+        {/* Footer Navigation */}
         <div className="sidebar-footer">
           <div className="sidebar-divider" />
 
-          {footerNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => handleNavClick(item.id)}
-                data-tooltip={item.label}
-              >
-                <div className="nav-item-icon">
-                  <Icon size={19} />
-                </div>
-                {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}
+            onClick={() => handleNavClick('settings')}
+            data-tooltip="Configurações"
+          >
+            <div className="nav-item-icon">
+              <Settings size={18} />
+            </div>
+            {!isCollapsed && <span className="nav-item-label">Configurações</span>}
+          </button>
+
+          <button
+            type="button"
+            className={`nav-item ${currentTab === 'profile' ? 'active' : ''}`}
+            onClick={() => handleNavClick('profile')}
+            data-tooltip="Perfil"
+          >
+            <div className="nav-item-icon">
+              <User size={18} />
+            </div>
+            {!isCollapsed && <span className="nav-item-label">Perfil</span>}
+          </button>
 
           <button
             type="button"
@@ -175,7 +290,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             data-tooltip="Sair"
           >
             <div className="nav-item-icon">
-              <LogOut size={19} />
+              <LogOut size={18} />
             </div>
             {!isCollapsed && <span className="nav-item-label">Sair</span>}
           </button>
