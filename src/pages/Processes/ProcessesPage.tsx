@@ -69,23 +69,13 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
   const loadProcesses = async () => {
     try {
       const remoteProcesses = await processesService.getProcesses();
-      if (remoteProcesses && remoteProcesses.length > 0) {
-        setProcesses(remoteProcesses);
-        remoteProcesses.forEach((pr) => db.saveProcess(pr));
-        if (selectedProcessId) {
-          const found = remoteProcesses.find((p) => p.id === selectedProcessId);
-          if (found) setViewingProcess(found);
-        }
-      } else {
-        const list = db.getProcesses();
-        setProcesses(list);
-        if (selectedProcessId) {
-          const found = list.find((p) => p.id === selectedProcessId);
-          if (found) setViewingProcess(found);
-        }
+      setProcesses(remoteProcesses || []);
+      if (selectedProcessId && remoteProcesses) {
+        const found = remoteProcesses.find((p) => p.id === selectedProcessId);
+        if (found) setViewingProcess(found);
       }
     } catch {
-      setProcesses(db.getProcesses());
+      setProcesses([]);
     }
   };
 
@@ -497,15 +487,58 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
         </div>
       </div>
 
-      {/* Grid of SOPs */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-          gap: '24px'
-        }}
-      >
-        {filteredProcesses.map((proc) => (
+      {/* Grid of SOPs or Empty State */}
+      {filteredProcesses.length === 0 ? (
+        <div
+          className="card"
+          style={{
+            padding: '64px 32px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'var(--cream-subtle)',
+              border: '1px solid var(--cream-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '16px',
+              color: 'var(--sand-gold-dark)'
+            }}
+          >
+            <GitMerge size={26} />
+          </div>
+          <h3 className="font-serif" style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Nenhum processo cadastrado ainda.
+          </h3>
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', maxWidth: '440px', lineHeight: 1.5, marginBottom: '22px' }}>
+            Crie os processos operacionais da Alicerce para padronizar a execução dos serviços.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={handleOpenCreate}
+            style={{ gap: '8px' }}
+          >
+            <Plus size={16} /> Criar processo
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+            gap: '24px'
+          }}
+        >
+          {filteredProcesses.map((proc) => (
           <div
             key={proc.id}
             className="card"
@@ -622,7 +655,8 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Modal Criar / Editar Processo */}
       <Modal

@@ -40,20 +40,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           dashboardService.getRecentActivities(),
         ]);
 
-        if (remoteProjects && remoteProjects.length > 0) setProjects(remoteProjects);
-        else setProjects(db.getProjects());
-
-        if (remoteClients && remoteClients.length > 0) setClients(remoteClients);
-        else setClients(db.getClients());
-
-        if (remoteActivities && remoteActivities.length > 0) setActivities(remoteActivities);
-        else setActivities(db.getActivities());
-
-        if (remoteMetrics) setMetrics(remoteMetrics);
+        setProjects(remoteProjects || []);
+        setClients(remoteClients || []);
+        setActivities(remoteActivities || []);
+        setMetrics(remoteMetrics || {
+          activeClientsCount: 0,
+          inProgressProjectsCount: 0,
+          waitingClientProjectsCount: 0,
+          upcomingCount: 0,
+        });
       } catch {
-        setProjects(db.getProjects());
-        setClients(db.getClients());
-        setActivities(db.getActivities());
+        setProjects([]);
+        setClients([]);
+        setActivities([]);
+        setMetrics({
+          activeClientsCount: 0,
+          inProgressProjectsCount: 0,
+          waitingClientProjectsCount: 0,
+          upcomingCount: 0,
+        });
       }
     };
 
@@ -359,90 +364,126 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            {/* Desktop Table View */}
-            <div className="desktop-table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Cliente / Projeto</th>
-                    <th>Serviço</th>
-                    <th>Responsável</th>
-                    <th>Prazo</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentProjects.map((proj) => (
-                    <tr
-                      key={proj.id}
-                      onClick={() => onNavigate('projects', proj.id)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>
-                        <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
-                          {proj.name}
-                        </div>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
-                          {proj.clientName}
-                        </div>
-                      </td>
-                      <td>
-                        <Badge status={proj.service} type="service" />
-                      </td>
-                      <td style={{ fontSize: '0.9rem', fontWeight: 500 }}>{proj.responsible}</td>
-                      <td style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', fontWeight: 550 }}>
-                        {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td>
-                        <Badge status={proj.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card Behavior (Requested in Prompt) */}
-            <div className="mobile-cards-container" style={{ padding: '16px' }}>
-              {recentProjects.map((proj) => (
+            {recentProjects.length === 0 ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center' }}>
                 <div
-                  key={proj.id}
-                  onClick={() => onNavigate('projects', proj.id)}
                   style={{
-                    padding: '16px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--cream-border)',
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '50%',
                     background: 'var(--cream-subtle)',
-                    marginBottom: '12px',
-                    cursor: 'pointer'
+                    border: '1px solid var(--cream-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                    color: 'var(--sand-gold-dark)'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                        {proj.clientName}
-                      </div>
-                      <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {proj.name}
-                      </div>
-                    </div>
-                    <Badge status={proj.status} />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--cream-border-subtle)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    <span>Entrega: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong></span>
-                    <span>Resp: <strong style={{ color: 'var(--text-primary)' }}>{proj.responsible}</strong></span>
-                  </div>
-
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    style={{ width: '100%', marginTop: '12px', justifyContent: 'center' }}
-                  >
-                    Abrir projeto
-                  </button>
+                  <Briefcase size={24} />
                 </div>
-              ))}
-            </div>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  Nenhum projeto cadastrado ainda.
+                </h4>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', maxWidth: '380px', margin: '0 auto 18px', lineHeight: 1.5 }}>
+                  Quando um novo projeto for criado, ele aparecerá aqui.
+                </p>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => onNavigate('projects')}
+                  style={{ margin: '0 auto' }}
+                >
+                  + Criar projeto
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="desktop-table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Cliente / Projeto</th>
+                        <th>Serviço</th>
+                        <th>Responsável</th>
+                        <th>Prazo</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentProjects.map((proj) => (
+                        <tr
+                          key={proj.id}
+                          onClick={() => onNavigate('projects', proj.id)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <td>
+                            <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
+                              {proj.name}
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                              {proj.clientName}
+                            </div>
+                          </td>
+                          <td>
+                            <Badge status={proj.service} type="service" />
+                          </td>
+                          <td style={{ fontSize: '0.9rem', fontWeight: 500 }}>{proj.responsible}</td>
+                          <td style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', fontWeight: 550 }}>
+                            {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td>
+                            <Badge status={proj.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card Behavior (Requested in Prompt) */}
+                <div className="mobile-cards-container" style={{ padding: '16px' }}>
+                  {recentProjects.map((proj) => (
+                    <div
+                      key={proj.id}
+                      onClick={() => onNavigate('projects', proj.id)}
+                      style={{
+                        padding: '16px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--cream-border)',
+                        background: 'var(--cream-subtle)',
+                        marginBottom: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                            {proj.clientName}
+                          </div>
+                          <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                            {proj.name}
+                          </div>
+                        </div>
+                        <Badge status={proj.status} />
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--cream-border-subtle)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        <span>Entrega: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong></span>
+                        <span>Resp: <strong style={{ color: 'var(--text-primary)' }}>{proj.responsible}</strong></span>
+                      </div>
+
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '100%', marginTop: '12px', justifyContent: 'center' }}
+                      >
+                        Abrir projeto
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Brand Center & Metodologia Banner */}
@@ -531,54 +572,81 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               <Calendar size={20} color="var(--sand-gold-dark)" />
             </div>
 
-            <div className="deliveries-timeline">
-              {upcomingDeliveries.map((proj) => {
-                const { day, month } = formatDeliveryDate(proj.dueDate);
-                return (
-                  <div
-                    key={proj.id}
-                    className="delivery-item"
-                    onClick={() => onNavigate('projects', proj.id)}
-                  >
-                    <div className="delivery-date-badge">
-                      <span className="delivery-date-day">{day}</span>
-                      <span className="delivery-date-month">{month}</span>
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: '0.94rem',
-                          fontWeight: 650,
-                          color: 'var(--text-primary)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {proj.name}
+            {upcomingDeliveries.length === 0 ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    background: 'var(--cream-subtle)',
+                    border: '1px solid var(--cream-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px',
+                    color: 'var(--sand-gold-dark)'
+                  }}
+                >
+                  <Calendar size={20} />
+                </div>
+                <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  Nenhuma entrega próxima.
+                </h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                  As próximas entregas dos projetos aparecerão aqui automaticamente.
+                </p>
+              </div>
+            ) : (
+              <div className="deliveries-timeline">
+                {upcomingDeliveries.map((proj) => {
+                  const { day, month } = formatDeliveryDate(proj.dueDate);
+                  return (
+                    <div
+                      key={proj.id}
+                      className="delivery-item"
+                      onClick={() => onNavigate('projects', proj.id)}
+                    >
+                      <div className="delivery-date-badge">
+                        <span className="delivery-date-day">{day}</span>
+                        <span className="delivery-date-month">{month}</span>
                       </div>
-                      <div
-                        style={{
-                          fontSize: '0.8rem',
-                          color: 'var(--text-muted)',
-                          marginTop: '2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <span>{proj.clientName}</span>
-                        <span>•</span>
-                        <span style={{ color: 'var(--sand-gold-dark)', fontWeight: 600 }}>{proj.service}</span>
-                      </div>
-                    </div>
 
-                    <Badge status={proj.status} />
-                  </div>
-                );
-              })}
-            </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: '0.94rem',
+                            fontWeight: 650,
+                            color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {proj.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.8rem',
+                            color: 'var(--text-muted)',
+                            marginTop: '2px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <span>{proj.clientName}</span>
+                          <span>•</span>
+                          <span style={{ color: 'var(--sand-gold-dark)', fontWeight: 600 }}>{proj.service}</span>
+                        </div>
+                      </div>
+
+                      <Badge status={proj.status} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Atividade Recente */}
@@ -592,53 +660,61 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {activities.slice(0, 5).map((act) => (
-                <div
-                  key={act.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '14px',
-                    fontSize: '0.9rem'
-                  }}
-                >
+            {activities.length === 0 ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Nenhuma atividade registrada ainda.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {activities.slice(0, 5).map((act) => (
                   <div
+                    key={act.id}
                     style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '50%',
-                      background: 'var(--cream-subtle)',
-                      border: '1px solid var(--cream-border)',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--green-primary)',
-                      flexShrink: 0
+                      alignItems: 'flex-start',
+                      gap: '14px',
+                      fontSize: '0.9rem'
                     }}
                   >
-                    {act.type === 'project' && <Briefcase size={16} />}
-                    {act.type === 'client' && <Users size={16} />}
-                    {act.type === 'material' && <FolderOpen size={16} />}
-                    {act.type === 'process' && <GitMerge size={16} />}
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 650, color: 'var(--text-primary)' }}>
-                        {act.title}
-                      </span>
-                      <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                        {act.timestamp}
-                      </span>
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        background: 'var(--cream-subtle)',
+                        border: '1px solid var(--cream-border)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--green-primary)',
+                        flexShrink: 0
+                      }}
+                    >
+                      {act.type === 'project' && <Briefcase size={16} />}
+                      {act.type === 'client' && <Users size={16} />}
+                      {act.type === 'material' && <FolderOpen size={16} />}
+                      {act.type === 'process' && <GitMerge size={16} />}
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '3px', lineHeight: 1.45, fontWeight: 450 }}>
-                      {act.description}
-                    </p>
+
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 650, color: 'var(--text-primary)' }}>
+                          {act.title}
+                        </span>
+                        <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          {act.timestamp}
+                        </span>
+                      </div>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '3px', lineHeight: 1.45, fontWeight: 450 }}>
+                        {act.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

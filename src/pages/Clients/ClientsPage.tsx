@@ -77,23 +77,13 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
   const loadClients = async () => {
     try {
       const remoteClients = await clientsService.getClients();
-      if (remoteClients && remoteClients.length > 0) {
-        setClients(remoteClients);
-        remoteClients.forEach((c) => db.saveClient(c));
-        if (selectedClientId) {
-          const found = remoteClients.find((c) => c.id === selectedClientId);
-          if (found) setViewingClient(found);
-        }
-      } else {
-        const localList = db.getClients();
-        setClients(localList);
-        if (selectedClientId) {
-          const found = localList.find((c) => c.id === selectedClientId);
-          if (found) setViewingClient(found);
-        }
+      setClients(remoteClients || []);
+      if (selectedClientId && remoteClients) {
+        const found = remoteClients.find((c) => c.id === selectedClientId);
+        if (found) setViewingClient(found);
       }
     } catch {
-      setClients(db.getClients());
+      setClients([]);
     }
   };
 
@@ -639,6 +629,51 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Empty State when no clients exist */}
+      {filteredClients.length === 0 && (
+        <div
+          className="card"
+          style={{
+            padding: '64px 32px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'var(--cream-subtle)',
+              border: '1px solid var(--cream-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '16px',
+              color: 'var(--sand-gold-dark)'
+            }}
+          >
+            <Building2 size={26} />
+          </div>
+          <h3 className="font-serif" style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Nenhum cliente cadastrado ainda.
+          </h3>
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', maxWidth: '420px', lineHeight: 1.5, marginBottom: '22px' }}>
+            Cadastre o primeiro cliente da Alicerce para começar.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={handleOpenCreate}
+            style={{ gap: '8px' }}
+          >
+            <Plus size={16} /> Novo cliente
+          </button>
         </div>
       )}
 

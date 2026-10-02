@@ -63,31 +63,16 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         clientsService.getClients(),
       ]);
 
-      if (remoteProjects && remoteProjects.length > 0) {
-        setProjects(remoteProjects);
-        remoteProjects.forEach((p) => db.saveProject(p));
-        if (selectedProjectId) {
-          const found = remoteProjects.find((p) => p.id === selectedProjectId);
-          if (found) setActiveProject(found);
-        }
-      } else {
-        const pList = db.getProjects();
-        setProjects(pList);
-        if (selectedProjectId) {
-          const found = pList.find((p) => p.id === selectedProjectId);
-          if (found) setActiveProject(found);
-        }
+      setProjects(remoteProjects || []);
+      if (selectedProjectId && remoteProjects) {
+        const found = remoteProjects.find((p) => p.id === selectedProjectId);
+        if (found) setActiveProject(found);
       }
 
-      if (remoteClients && remoteClients.length > 0) {
-        setClients(remoteClients);
-        remoteClients.forEach((c) => db.saveClient(c));
-      } else {
-        setClients(db.getClients());
-      }
+      setClients(remoteClients || []);
     } catch {
-      setProjects(db.getProjects());
-      setClients(db.getClients());
+      setProjects([]);
+      setClients([]);
     }
   };
 
@@ -625,6 +610,51 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Empty State when no projects exist */}
+      {filteredProjects.length === 0 && (
+        <div
+          className="card"
+          style={{
+            padding: '64px 32px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'var(--cream-subtle)',
+              border: '1px solid var(--cream-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '16px',
+              color: 'var(--sand-gold-dark)'
+            }}
+          >
+            <Briefcase size={26} />
+          </div>
+          <h3 className="font-serif" style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Nenhum projeto cadastrado ainda.
+          </h3>
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', maxWidth: '420px', lineHeight: 1.5, marginBottom: '22px' }}>
+            Quando um novo projeto for criado, ele aparecerá aqui.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={handleOpenCreate}
+            style={{ gap: '8px' }}
+          >
+            <Plus size={16} /> Criar projeto
+          </button>
         </div>
       )}
 

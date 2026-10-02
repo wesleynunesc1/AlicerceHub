@@ -66,14 +66,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
   const loadMaterials = async () => {
     try {
       const remoteMaterials = await materialsService.getMaterials();
-      if (remoteMaterials && remoteMaterials.length > 0) {
-        setMaterials(remoteMaterials);
-        remoteMaterials.forEach((m) => db.saveMaterial(m));
-      } else {
-        setMaterials(db.getMaterials());
-      }
+      setMaterials(remoteMaterials || []);
     } catch {
-      setMaterials(db.getMaterials());
+      setMaterials([]);
     }
   };
 
@@ -289,16 +284,45 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
 
       {/* Grid of Materials */}
       {filteredMaterials.length === 0 ? (
-        <div className="card empty-state">
-          <div className="empty-state-icon">
-            <FolderOpen size={30} />
+        <div
+          className="card"
+          style={{
+            padding: '64px 32px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'var(--cream-subtle)',
+              border: '1px solid var(--cream-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '16px',
+              color: 'var(--sand-gold-dark)'
+            }}
+          >
+            <FolderOpen size={26} />
           </div>
-          <h3 className="empty-state-title">Nenhum material encontrado</h3>
-          <p className="empty-state-text">
-            Nenhum documento encontrado na categoria selecionada.
+          <h3 className="font-serif" style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Nenhum material cadastrado ainda.
+          </h3>
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', maxWidth: '420px', lineHeight: 1.5, marginBottom: '22px' }}>
+            Centralize aqui os materiais e documentos da Alicerce.
           </p>
-          <button className="btn btn-primary" onClick={handleOpenCreate}>
-            <Plus size={16} /> Adicionar Novo Material
+          <button
+            className="btn btn-primary"
+            onClick={handleOpenCreate}
+            style={{ gap: '8px' }}
+          >
+            <Plus size={16} /> Adicionar material
           </button>
         </div>
       ) : (
