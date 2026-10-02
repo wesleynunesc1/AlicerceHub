@@ -226,7 +226,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
             Clientes
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
-            Empresas e contas atendidas pela estrutura operacional da Alicerce.
+            Gerencie clientes, contatos, contratos e status da conta.
           </p>
         </div>
 

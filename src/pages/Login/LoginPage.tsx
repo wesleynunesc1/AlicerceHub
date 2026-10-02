@@ -5,11 +5,12 @@ import { authService } from '../../services/auth';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
+  onNavigateToRegister?: () => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('admin@alicerce.com');
-  const [password, setPassword] = useState('alicerce2025');
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -271,7 +272,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          {/* Demo helper */}
+          {/* Registration link */}
           <div
             style={{
               marginTop: '32px',
@@ -280,30 +281,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               textAlign: 'center'
             }}
           >
-            <div
-              style={{
-                fontSize: '0.82rem',
-                color: 'var(--text-muted)',
-                marginBottom: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                fontWeight: 500
-              }}
-            >
-              <ShieldCheck size={15} color="var(--sand-gold-dark)" />
-              Ambiente Restrito à Equipe Alicerce
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={handleFillDemo}
-              style={{ width: '100%', padding: '10px 14px', fontSize: '0.84rem' }}
-            >
-              Preencher credenciais de demonstração (Admin)
-            </button>
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
+              Não possui uma conta?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onNavigateToRegister) {
+                    onNavigateToRegister();
+                  } else {
+                    window.history.pushState({}, '', '/cadastro');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--green-primary)',
+                  fontWeight: 650,
+                  fontSize: '0.92rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: 0
+                }}
+              >
+                Criar conta
+              </button>
+            </p>
           </div>
         </div>
       </div>

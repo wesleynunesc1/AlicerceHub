@@ -59,6 +59,65 @@ export const authService = {
   },
 
   /**
+   * Realiza cadastro de novo usuário no Supabase Auth
+   */
+  async signUp(nome: string, email: string, password: string): Promise<{ success: boolean; error?: string; user?: any; session?: any; profile?: UserProfile }> {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nome,
+            name: nome,
+            cargo: 'Estrategista Alicerce',
+            role: 'team'
+          }
+        }
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (!data.user) {
+        return { success: false, error: 'Não foi possível criar o usuário no Supabase Auth.' };
+      }
+
+      // Garante inserção direta na tabela profiles caso a trigger esteja pendente
+      try {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          nome,
+          email,
+          cargo: 'Estrategista Alicerce',
+          role: 'team'
+        }, { onConflict: 'id' });
+      } catch {
+        // trigger on_auth_user_created trata
+      }
+
+      const profile: UserProfile = {
+        id: data.user.id,
+        name: nome,
+        email,
+        role: 'Estrategista Alicerce',
+        roleType: 'Equipe',
+        phone: ''
+      };
+
+      return {
+        success: true,
+        user: data.user,
+        session: data.session,
+        profile
+      };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Falha no cadastro.' };
+    }
+  },
+
+  /**
    * Encerra a sessão no Supabase Auth
    */
   async signOut(): Promise<void> {

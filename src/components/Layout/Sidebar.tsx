@@ -52,6 +52,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'brand-center' as NavTab, label: 'Brand Center', icon: Sparkles }
   ];
 
+  const footerNavItems = [
+    { id: 'settings' as NavTab, label: 'Configurações', icon: Settings },
+    { id: 'profile' as NavTab, label: 'Perfil', icon: User }
+  ];
+
   const handleNavClick = (tab: NavTab) => {
     onSelectTab(tab);
     onCloseMobile();
@@ -63,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         className={`sidebar-overlay ${isMobileOpen ? 'mobile-open' : ''}`}
         onClick={onCloseMobile}
+        aria-hidden="true"
       />
 
       <aside
@@ -70,43 +76,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isMobileOpen ? 'mobile-open' : ''
         }`}
       >
-        {/* Header with Official Logo */}
+        {/* Top Header - ONLY official Alicerce Logo, no typed text */}
         <div className="sidebar-header">
           <div
             className="sidebar-logo-container"
             onClick={() => handleNavClick('dashboard')}
             style={{ cursor: 'pointer' }}
+            title="Alicerce OS"
           >
-            <img
-              src="/Ab.png"
-              alt="Logo Alicerce Oficial"
-              className="sidebar-logo-img"
-            />
-            {!isCollapsed && (
-              <div className="sidebar-brand-text">
-                <span className="sidebar-brand-name">Alicerce</span>
-                <span className="sidebar-brand-sub">OS • Central</span>
-              </div>
+            {isCollapsed ? (
+              <img
+                src="/Ab.png"
+                alt="Alicerce"
+                className="sidebar-logo-icon"
+              />
+            ) : (
+              <img
+                src="/logo.png"
+                alt="Alicerce"
+                className="sidebar-logo-full"
+              />
             )}
           </div>
 
-          {/* Desktop Collapse Toggle */}
+          {/* Minimal discreet desktop collapse control */}
           <button
-            className="sidebar-collapse-btn"
+            type="button"
+            className="sidebar-collapse-toggle"
             onClick={onToggleCollapse}
+            aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
             title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
-            style={{ display: isMobileOpen ? 'none' : 'flex' }}
           >
-            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
 
           {/* Mobile Close Button */}
           {isMobileOpen && (
             <button
-              className="sidebar-collapse-btn"
+              type="button"
+              className="sidebar-close-mobile-btn"
               onClick={onCloseMobile}
-              title="Fechar menu"
-              style={{ width: '36px', height: '36px' }}
+              aria-label="Fechar menu"
             >
               <X size={20} />
             </button>
@@ -121,12 +131,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <button
                 key={item.id}
+                type="button"
                 className={`nav-item ${isActive ? 'active' : ''}`}
                 onClick={() => handleNavClick(item.id)}
-                title={isCollapsed ? item.label : undefined}
+                data-tooltip={item.label}
               >
                 <div className="nav-item-icon">
-                  <Icon size={20} />
+                  <Icon size={19} />
                 </div>
                 {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
               </button>
@@ -136,60 +147,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Separator & Footer Navigation */}
         <div className="sidebar-footer">
-          {/* Institutional Editorial Note (Requested in prompt) */}
-          {!isCollapsed && (
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-md)',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(197, 168, 128, 0.2)',
-                marginBottom: '10px'
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '0.86rem',
-                  fontStyle: 'italic',
-                  color: 'var(--sand-gold-light)',
-                  lineHeight: 1.35,
-                  display: 'block'
-                }}
-              >
-                "Estrutura para negócios que querem crescer."
-              </span>
-            </div>
-          )}
-
           <div className="sidebar-divider" />
 
-          <button
-            className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}
-            onClick={() => handleNavClick('settings')}
-            title={isCollapsed ? 'Configurações' : undefined}
-          >
-            <div className="nav-item-icon">
-              <Settings size={19} />
-            </div>
-            {!isCollapsed && <span className="nav-item-label">Configurações</span>}
-          </button>
+          {footerNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`nav-item ${isActive ? 'active' : ''}`}
+                onClick={() => handleNavClick(item.id)}
+                data-tooltip={item.label}
+              >
+                <div className="nav-item-icon">
+                  <Icon size={19} />
+                </div>
+                {!isCollapsed && <span className="nav-item-label">{item.label}</span>}
+              </button>
+            );
+          })}
 
           <button
-            className={`nav-item ${currentTab === 'profile' ? 'active' : ''}`}
-            onClick={() => handleNavClick('profile')}
-            title={isCollapsed ? 'Perfil' : undefined}
-          >
-            <div className="nav-item-icon">
-              <User size={19} />
-            </div>
-            {!isCollapsed && <span className="nav-item-label">Perfil</span>}
-          </button>
-
-          <button
-            className="nav-item danger"
+            type="button"
+            className="nav-item nav-item-logout"
             onClick={onLogout}
-            title={isCollapsed ? 'Sair' : undefined}
+            data-tooltip="Sair"
           >
             <div className="nav-item-icon">
               <LogOut size={19} />

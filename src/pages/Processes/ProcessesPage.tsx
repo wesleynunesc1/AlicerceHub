@@ -14,7 +14,10 @@ import {
   Calendar,
   Layers,
   CheckSquare,
-  Square
+  Square,
+  GitMerge,
+  AlertCircle,
+  RotateCw
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { processesService } from '../../services/processes';
@@ -66,7 +69,12 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
     steps: [] as ProcessStep[]
   });
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const loadProcesses = async () => {
+    setIsLoading(true);
+    setLoadError(null);
     try {
       const remoteProcesses = await processesService.getProcesses();
       setProcesses(remoteProcesses || []);
@@ -74,8 +82,12 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
         const found = remoteProcesses.find((p) => p.id === selectedProcessId);
         if (found) setViewingProcess(found);
       }
-    } catch {
+    } catch (err: any) {
+      console.error('Erro ao carregar processos:', err);
+      setLoadError('Não foi possível carregar os processos.');
       setProcesses([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -426,7 +438,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
             Processos
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
-            A maneira Alicerce de executar cada serviço. Biblioteca de procedimentos padronizados (SOPs).
+            Procedimentos operacionais padrão (SOPs) e metodologias de execução.
           </p>
         </div>
 
@@ -487,8 +499,66 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
         </div>
       </div>
 
-      {/* Grid of SOPs or Empty State */}
-      {filteredProcesses.length === 0 ? (
+      {/* Grid of SOPs, Loading, Error or Empty State */}
+      {isLoading ? (
+        <div
+          className="card"
+          style={{
+            padding: '64px 32px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px'
+          }}
+        >
+          <RotateCw size={28} className="spin-animation" color="var(--sand-gold-dark)" />
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)' }}>Carregando processos da Alicerce...</p>
+        </div>
+      ) : loadError ? (
+        <div
+          className="card"
+          style={{
+            padding: '64px 32px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: '#fef2f2',
+              border: '1px solid #fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '16px',
+              color: '#dc2626'
+            }}
+          >
+            <AlertCircle size={26} />
+          </div>
+          <h3 className="font-serif" style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Não foi possível carregar os processos.
+          </h3>
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', maxWidth: '440px', lineHeight: 1.5, marginBottom: '22px' }}>
+            Houve uma falha na comunicação com o banco de dados. Verifique sua conexão e tente novamente.
+          </p>
+          <button
+            className="btn btn-secondary"
+            onClick={loadProcesses}
+            style={{ gap: '8px' }}
+          >
+            <RotateCw size={16} /> Tentar novamente
+          </button>
+        </div>
+      ) : filteredProcesses.length === 0 ? (
         <div
           className="card"
           style={{
@@ -520,7 +590,7 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
             Nenhum processo cadastrado ainda.
           </h3>
           <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', maxWidth: '440px', lineHeight: 1.5, marginBottom: '22px' }}>
-            Crie os processos operacionais da Alicerce para padronizar a execução dos serviços.
+            Crie os processos da Alicerce para padronizar a execução dos serviços.
           </p>
           <button
             className="btn btn-primary"

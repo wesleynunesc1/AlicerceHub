@@ -219,7 +219,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
             Materiais
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
-            Biblioteca central de templates, contratos, briefings e documentos internos da Alicerce.
+            Biblioteca de apresentações, contratos, templates e diretrizes.
           </p>
         </div>
 

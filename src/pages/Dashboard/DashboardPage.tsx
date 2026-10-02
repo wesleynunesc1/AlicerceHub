@@ -5,11 +5,8 @@ import {
   Clock,
   Calendar,
   ArrowUpRight,
-  Sparkles,
-  ArrowRight,
-  TrendingUp,
-  FolderOpen,
-  GitMerge
+  Plus,
+  ArrowRight
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { dashboardService, DashboardMetrics } from '../../services/dashboard';
@@ -17,7 +14,7 @@ import { projectsService } from '../../services/projects';
 import { clientsService } from '../../services/clients';
 import { Badge } from '../../components/Common/Badge';
 import { NavTab } from '../../components/Layout/Sidebar';
-import { Project, Client, ActivityItem } from '../../types';
+import { Project, Client } from '../../types';
 
 interface DashboardPageProps {
   onNavigate: (tab: NavTab, targetId?: string) => void;
@@ -26,39 +23,39 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const user = db.getUser();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadDashboard = async () => {
+      setIsLoading(true);
       try {
-        const [remoteProjects, remoteClients, remoteMetrics, remoteActivities] = await Promise.all([
+        const [remoteProjects, remoteClients, remoteMetrics] = await Promise.all([
           projectsService.getProjects(),
           clientsService.getClients(),
           dashboardService.getMetrics(),
-          dashboardService.getRecentActivities(),
         ]);
 
         setProjects(remoteProjects || []);
         setClients(remoteClients || []);
-        setActivities(remoteActivities || []);
         setMetrics(remoteMetrics || {
           activeClientsCount: 0,
           inProgressProjectsCount: 0,
           waitingClientProjectsCount: 0,
           upcomingCount: 0,
         });
-      } catch {
+      } catch (err) {
+        console.error('Erro ao carregar dados do dashboard:', err);
         setProjects([]);
         setClients([]);
-        setActivities([]);
         setMetrics({
           activeClientsCount: 0,
           inProgressProjectsCount: 0,
           waitingClientProjectsCount: 0,
           upcomingCount: 0,
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -66,7 +63,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   }, []);
 
   const activeClientsCount = metrics?.activeClientsCount ?? clients.filter((c) => c.status === 'Ativo').length;
-  const inProgressProjectsCount = metrics?.inProgressProjectsCount ?? projects.filter((p) => p.status === 'Em produção' || p.status === 'Planejamento' || p.status === 'Revisão').length;
+  const inProgressProjects = projects.filter(
+    (p) => p.status === 'Em produção' || p.status === 'Planejamento' || p.status === 'Revisão'
+  );
+  const inProgressProjectsCount = metrics?.inProgressProjectsCount ?? inProgressProjects.length;
   const waitingClientProjectsCount = metrics?.waitingClientProjectsCount ?? projects.filter((p) => p.status === 'Aguardando cliente').length;
 
   const upcomingDeliveries = [...projects]
@@ -75,51 +75,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
     .slice(0, 4);
 
   const upcomingCount = metrics?.upcomingCount ?? upcomingDeliveries.length;
-  const recentProjects = [...projects].slice(0, 5);
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
-  };
-
-  const firstName = user.name.split(' ')[0];
+  const recentClients = [...clients].slice(0, 5);
 
   const formatDeliveryDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-    return { day, month };
+    try {
+      const date = new Date(dateStr);
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+      return { day, month };
+    } catch {
+      return { day: '--', month: '---' };
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
-      {/* 1. Área de Boas-vindas com Composição Institucional */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              fontSize: '0.76rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.14em',
-              color: 'var(--sand-gold-dark)',
-              background: 'var(--sand-gold-tint)',
-              padding: '3px 12px',
-              borderRadius: 'var(--radius-full)'
-            }}
-          >
-            Central Operacional Alicerce
-          </span>
-        </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', maxWidth: '1400px' }}>
+      {/* 1. Header Funcional */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <h1
           className="font-serif"
           style={{
@@ -127,597 +99,516 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             fontWeight: 700,
             color: 'var(--green-deep)',
             letterSpacing: '-0.02em',
-            margin: '4px 0 2px'
+            margin: 0
           }}
         >
-          {getGreeting()}, {firstName}.
+          Dashboard
         </h1>
-
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 450, maxWidth: '640px' }}>
-          Aqui está o panorama da operação da Alicerce.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', margin: 0, fontWeight: 450 }}>
+          Visão geral da operação da Alicerce.
         </p>
       </div>
 
-      {/* 2. Bloco Composto de Operação (Não 4 caixas idênticas e isoladas) */}
-      <div
-        className="card"
-        style={{
-          padding: '0',
-          overflow: 'hidden',
-          background: 'var(--cream-card)',
-          border: '1px solid var(--cream-border)',
-          boxShadow: 'var(--shadow-sm)'
-        }}
-      >
+      {/* 2. Visão Geral da Operação — Faixa Horizontal / Grid Editorial */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2
+            style={{
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              color: 'var(--sand-gold-dark)',
+              margin: 0
+            }}
+          >
+            Visão geral da operação
+          </h2>
+        </div>
+
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            background: '#FFFFFF',
+            border: '1px solid var(--cream-border)',
+            borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+            boxShadow: 'var(--shadow-sm)'
           }}
-          className="metric-composite-grid"
         >
-          {/* Hero Indicator: Clientes Ativos */}
+          {/* Indicador 1: Clientes Ativos */}
           <div
             onClick={() => onNavigate('clients')}
             style={{
-              padding: '28px',
+              padding: '24px 28px',
+              borderRight: '1px solid var(--cream-border-subtle)',
+              borderBottom: '1px solid var(--cream-border-subtle)',
+              cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              cursor: 'pointer',
-              background: 'linear-gradient(180deg, rgba(18, 53, 43, 0.02) 0%, transparent 100%)',
-              borderRight: '1px solid var(--cream-border-subtle)',
-              position: 'relative'
+              gap: '16px',
+              transition: 'background var(--transition-fast)'
             }}
+            className="editorial-indicator"
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
-                Clientes Ativos
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
+                Clientes ativos
               </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: 'var(--green-tint)',
-                  color: 'var(--green-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Users size={18} />
-              </div>
+              <Users size={18} color="var(--green-primary)" />
             </div>
-
             <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
                 {activeClientsCount}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--status-active-text)', fontWeight: 650, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <TrendingUp size={13} /> +20% carteira ativa
-              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
+                contas com contrato vigente
+              </span>
             </div>
           </div>
 
-          {/* Indicator: Projetos em Andamento */}
+          {/* Indicador 2: Projetos em Produção */}
           <div
             onClick={() => onNavigate('projects')}
             style={{
-              padding: '28px',
+              padding: '24px 28px',
+              borderRight: '1px solid var(--cream-border-subtle)',
+              borderBottom: '1px solid var(--cream-border-subtle)',
+              cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              cursor: 'pointer',
-              borderRight: '1px solid var(--cream-border-subtle)'
+              gap: '16px',
+              transition: 'background var(--transition-fast)'
             }}
+            className="editorial-indicator"
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
-                Em Produção
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
+                Projetos em produção
               </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: 'var(--status-prog-bg)',
-                  color: 'var(--status-prog-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Briefcase size={18} />
-              </div>
+              <Briefcase size={18} color="var(--sand-gold-dark)" />
             </div>
-
             <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
                 {inProgressProjectsCount}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--status-prog-text)', fontWeight: 600, marginTop: '8px' }}>
-                Em execução pela equipe
-              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
+                em execução pela equipe
+              </span>
             </div>
           </div>
 
-          {/* Indicator: Aguardando Cliente */}
+          {/* Indicador 3: Aguardando Cliente */}
           <div
             onClick={() => onNavigate('projects')}
             style={{
-              padding: '28px',
+              padding: '24px 28px',
+              borderRight: '1px solid var(--cream-border-subtle)',
+              borderBottom: '1px solid var(--cream-border-subtle)',
+              cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              cursor: 'pointer',
-              borderRight: '1px solid var(--cream-border-subtle)'
+              gap: '16px',
+              transition: 'background var(--transition-fast)'
             }}
+            className="editorial-indicator"
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
-                Aguardando Cliente
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
+                Aguardando cliente
               </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: 'var(--status-wait-bg)',
-                  color: 'var(--status-wait-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Clock size={18} />
-              </div>
+              <Clock size={18} color="var(--status-wait-text)" />
             </div>
-
             <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
                 {waitingClientProjectsCount}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--status-wait-text)', fontWeight: 600, marginTop: '8px' }}>
-                Aguardando aprovação
-              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
+                pendentes de aprovação externa
+              </span>
             </div>
           </div>
 
-          {/* Indicator: Entregas Próximas */}
+          {/* Indicador 4: Próximas Entregas */}
           <div
             onClick={() => onNavigate('projects')}
             style={{
-              padding: '28px',
+              padding: '24px 28px',
+              borderBottom: '1px solid var(--cream-border-subtle)',
+              cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              cursor: 'pointer'
+              gap: '16px',
+              transition: 'background var(--transition-fast)'
             }}
+            className="editorial-indicator"
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
-                Entregas Próximas
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)', fontWeight: 550 }}>
+                Entregas próximas
               </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: 'var(--status-active-bg)',
-                  color: 'var(--status-active-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Calendar size={18} />
-              </div>
+              <Calendar size={18} color="var(--green-primary)" />
             </div>
-
             <div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1 }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1 }}>
                 {upcomingCount}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--green-primary)', fontWeight: 600, marginTop: '8px' }}>
-                Próximos 15 dias
-              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', display: 'block' }}>
+                prazos nos próximos 15 dias
+              </span>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 3. Main Composition: Recent Projects & Side Panel */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '32px',
-          alignItems: 'start'
-        }}
-      >
-        {/* Left Column: Projetos Recentes (Desktop Table + Mobile Cards) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', gridColumn: 'span 2' }}>
-          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div
+      {/* 3. Projetos em Andamento — Seção Aberta com Tabela Limpa */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2
+              className="font-serif"
               style={{
-                padding: '24px 30px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: '1px solid var(--cream-border)'
+                fontSize: '1.6rem',
+                fontWeight: 700,
+                color: 'var(--green-deep)',
+                margin: 0
               }}
             >
-              <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.45rem' }}>
-                  Projetos Recentes
-                </h3>
-                <p className="card-subtitle">Fluxo de entregas prioritárias da agência</p>
-              </div>
-
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => onNavigate('projects')}
-                style={{ gap: '6px' }}
-              >
-                Ver todos <ArrowUpRight size={14} />
-              </button>
-            </div>
-
-            {recentProjects.length === 0 ? (
-              <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '50%',
-                    background: 'var(--cream-subtle)',
-                    border: '1px solid var(--cream-border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                    color: 'var(--sand-gold-dark)'
-                  }}
-                >
-                  <Briefcase size={24} />
-                </div>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  Nenhum projeto cadastrado ainda.
-                </h4>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', maxWidth: '380px', margin: '0 auto 18px', lineHeight: 1.5 }}>
-                  Quando um novo projeto for criado, ele aparecerá aqui.
-                </p>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => onNavigate('projects')}
-                  style={{ margin: '0 auto' }}
-                >
-                  + Criar projeto
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* Desktop Table View */}
-                <div className="desktop-table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Cliente / Projeto</th>
-                        <th>Serviço</th>
-                        <th>Responsável</th>
-                        <th>Prazo</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentProjects.map((proj) => (
-                        <tr
-                          key={proj.id}
-                          onClick={() => onNavigate('projects', proj.id)}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <td>
-                            <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.96rem' }}>
-                              {proj.name}
-                            </div>
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
-                              {proj.clientName}
-                            </div>
-                          </td>
-                          <td>
-                            <Badge status={proj.service} type="service" />
-                          </td>
-                          <td style={{ fontSize: '0.9rem', fontWeight: 500 }}>{proj.responsible}</td>
-                          <td style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', fontWeight: 550 }}>
-                            {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
-                          </td>
-                          <td>
-                            <Badge status={proj.status} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile Card Behavior (Requested in Prompt) */}
-                <div className="mobile-cards-container" style={{ padding: '16px' }}>
-                  {recentProjects.map((proj) => (
-                    <div
-                      key={proj.id}
-                      onClick={() => onNavigate('projects', proj.id)}
-                      style={{
-                        padding: '16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--cream-border)',
-                        background: 'var(--cream-subtle)',
-                        marginBottom: '12px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                            {proj.clientName}
-                          </div>
-                          <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            {proj.name}
-                          </div>
-                        </div>
-                        <Badge status={proj.status} />
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--cream-border-subtle)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        <span>Entrega: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong></span>
-                        <span>Resp: <strong style={{ color: 'var(--text-primary)' }}>{proj.responsible}</strong></span>
-                      </div>
-
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ width: '100%', marginTop: '12px', justifyContent: 'center' }}
-                      >
-                        Abrir projeto
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+              Projetos em andamento
+            </h2>
           </div>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onNavigate('projects')}
+            style={{ gap: '6px' }}
+          >
+            Ver todos <ArrowUpRight size={14} />
+          </button>
+        </div>
 
-          {/* Brand Center & Metodologia Banner */}
+        {inProgressProjects.length === 0 ? (
           <div
-            className="card"
             style={{
-              background: 'linear-gradient(135deg, #0B221B 0%, #12352B 100%)',
-              color: '#FAF8F5',
-              padding: '36px',
-              border: '1px solid var(--sand-gold-dark)',
-              boxShadow: 'var(--shadow-md)'
+              padding: '48px 24px',
+              background: '#FFFFFF',
+              border: '1px solid var(--cream-border)',
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '24px'
-              }}
+            <p style={{ fontSize: '0.96rem', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+              Nenhum projeto em andamento no momento.
+            </p>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => onNavigate('projects')}
+              style={{ gap: '6px', margin: '0 auto' }}
             >
-              <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    color: 'var(--sand-gold)',
-                    fontSize: '0.78rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.14em',
-                    fontWeight: 700,
-                    marginBottom: '10px'
-                  }}
-                >
-                  <Sparkles size={16} /> Brand Center & Metodologia
-                </div>
-                <h4
-                  className="font-serif"
-                  style={{ fontSize: '1.8rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}
-                >
-                  A estrutura por trás da nossa operação.
-                </h4>
-                <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.96rem', maxWidth: '580px', lineHeight: 1.6 }}>
-                  Acesse os manuais de identidade da marca Alicerce, paleta cromática com cópia de HEX e os procedimentos operacionais (SOPs) de cada serviço.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-gold"
-                  onClick={() => onNavigate('brand-center')}
-                  style={{ gap: '8px' }}
-                >
-                  Brand Center <ArrowRight size={16} />
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => onNavigate('processes')}
-                  style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    borderColor: 'rgba(255,255,255,0.25)',
-                    color: '#ffffff',
-                    fontWeight: 600
-                  }}
-                >
-                  Processos SOP
-                </button>
-              </div>
-            </div>
+              <Plus size={15} /> Criar projeto
+            </button>
           </div>
-        </div>
-
-        {/* Right Column: Upcoming Deliveries & Recent Activities */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          {/* Próximas Entregas (Vertical Timeline) */}
-          <div className="card">
-            <div className="card-header" style={{ marginBottom: '18px' }}>
-              <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.35rem' }}>
-                  Próximas Entregas
-                </h3>
-                <p className="card-subtitle">Prazos e cronogramas imediatos</p>
-              </div>
-              <Calendar size={20} color="var(--sand-gold-dark)" />
-            </div>
-
-            {upcomingDeliveries.length === 0 ? (
-              <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '50%',
-                    background: 'var(--cream-subtle)',
-                    border: '1px solid var(--cream-border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 12px',
-                    color: 'var(--sand-gold-dark)'
-                  }}
-                >
-                  <Calendar size={20} />
-                </div>
-                <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                  Nenhuma entrega próxima.
-                </h4>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                  As próximas entregas dos projetos aparecerão aqui automaticamente.
-                </p>
-              </div>
-            ) : (
-              <div className="deliveries-timeline">
-                {upcomingDeliveries.map((proj) => {
-                  const { day, month } = formatDeliveryDate(proj.dueDate);
-                  return (
-                    <div
+        ) : (
+          <div
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid var(--cream-border)',
+              borderRadius: 'var(--radius-lg)',
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+          >
+            <div className="desktop-table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Projeto</th>
+                    <th>Cliente</th>
+                    <th>Serviço</th>
+                    <th>Responsável</th>
+                    <th>Prazo</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inProgressProjects.slice(0, 6).map((proj) => (
+                    <tr
                       key={proj.id}
-                      className="delivery-item"
                       onClick={() => onNavigate('projects', proj.id)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <div className="delivery-date-badge">
-                        <span className="delivery-date-day">{day}</span>
-                        <span className="delivery-date-month">{month}</span>
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: '0.94rem',
-                            fontWeight: 650,
-                            color: 'var(--text-primary)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
+                      <td>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
                           {proj.name}
                         </div>
-                        <div
-                          style={{
-                            fontSize: '0.8rem',
-                            color: 'var(--text-muted)',
-                            marginTop: '2px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                        >
-                          <span>{proj.clientName}</span>
-                          <span>•</span>
-                          <span style={{ color: 'var(--sand-gold-dark)', fontWeight: 600 }}>{proj.service}</span>
-                        </div>
-                      </div>
-
-                      <Badge status={proj.status} />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Atividade Recente */}
-          <div className="card">
-            <div className="card-header" style={{ marginBottom: '18px' }}>
-              <div>
-                <h3 className="card-title font-serif" style={{ fontSize: '1.35rem' }}>
-                  Atividade Recente
-                </h3>
-                <p className="card-subtitle">Histórico de atualizações operacionais</p>
-              </div>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+                        {proj.clientName}
+                      </td>
+                      <td>
+                        <Badge status={proj.service} type="service" />
+                      </td>
+                      <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                        {proj.responsible}
+                      </td>
+                      <td style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', fontWeight: 550, color: 'var(--text-primary)' }}>
+                        {new Date(proj.dueDate).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td>
+                        <Badge status={proj.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {activities.length === 0 ? (
-              <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: 0 }}>
-                  Nenhuma atividade registrada ainda.
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {activities.slice(0, 5).map((act) => (
+            {/* Mobile View */}
+            <div className="mobile-cards-container" style={{ padding: '16px', display: 'none' }}>
+              {inProgressProjects.slice(0, 6).map((proj) => (
+                <div
+                  key={proj.id}
+                  onClick={() => onNavigate('projects', proj.id)}
+                  style={{
+                    padding: '16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--cream-border)',
+                    background: 'var(--cream-subtle)',
+                    marginBottom: '10px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                        {proj.name}
+                      </div>
+                      <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {proj.clientName}
+                      </div>
+                    </div>
+                    <Badge status={proj.status} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--cream-border-subtle)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <span>Prazo: <strong style={{ color: 'var(--text-primary)' }}>{new Date(proj.dueDate).toLocaleDateString('pt-BR')}</strong></span>
+                    <span>{proj.responsible}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 4. Entregas Próximas */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2
+              className="font-serif"
+              style={{
+                fontSize: '1.6rem',
+                fontWeight: 700,
+                color: 'var(--green-deep)',
+                margin: 0
+              }}
+            >
+              Entregas próximas
+            </h2>
+          </div>
+          <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+            Cronograma prioritário
+          </span>
+        </div>
+
+        {upcomingDeliveries.length === 0 ? (
+          <div
+            style={{
+              padding: '40px 24px',
+              background: '#FFFFFF',
+              border: '1px solid var(--cream-border)',
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
+            }}
+          >
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', margin: 0 }}>
+              Nenhuma entrega pendente para os próximos dias.
+            </p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '16px'
+            }}
+          >
+            {upcomingDeliveries.map((proj) => {
+              const { day, month } = formatDeliveryDate(proj.dueDate);
+              return (
+                <div
+                  key={proj.id}
+                  onClick={() => onNavigate('projects', proj.id)}
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid var(--cream-border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '18px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    cursor: 'pointer',
+                    boxShadow: 'var(--shadow-sm)',
+                    transition: 'border-color var(--transition-fast)'
+                  }}
+                >
                   <div
-                    key={act.id}
                     style={{
+                      width: '48px',
+                      height: '52px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--green-surface)',
+                      color: '#FFFFFF',
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '14px',
-                      fontSize: '0.9rem'
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
                     }}
                   >
+                    <span style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1 }}>{day}</span>
+                    <span style={{ fontSize: '0.66rem', letterSpacing: '0.08em', color: 'var(--sand-gold)', marginTop: '2px' }}>{month}</span>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '50%',
-                        background: 'var(--cream-subtle)',
-                        border: '1px solid var(--cream-border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--green-primary)',
-                        flexShrink: 0
+                        fontWeight: 650,
+                        fontSize: '0.94rem',
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}
                     >
-                      {act.type === 'project' && <Briefcase size={16} />}
-                      {act.type === 'client' && <Users size={16} />}
-                      {act.type === 'material' && <FolderOpen size={16} />}
-                      {act.type === 'process' && <GitMerge size={16} />}
+                      {proj.name}
                     </div>
-
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 650, color: 'var(--text-primary)' }}>
-                          {act.title}
-                        </span>
-                        <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                          {act.timestamp}
-                        </span>
-                      </div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '3px', lineHeight: 1.45, fontWeight: 450 }}>
-                        {act.description}
-                      </p>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {proj.clientName} • <span style={{ color: 'var(--sand-gold-dark)', fontWeight: 600 }}>{proj.service}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <Badge status={proj.status} />
+                </div>
+              );
+            })}
           </div>
+        )}
+      </section>
+
+      {/* 5. Clientes Recentes */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2
+              className="font-serif"
+              style={{
+                fontSize: '1.6rem',
+                fontWeight: 700,
+                color: 'var(--green-deep)',
+                margin: 0
+              }}
+            >
+              Clientes recentes
+            </h2>
+          </div>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onNavigate('clients')}
+            style={{ gap: '6px' }}
+          >
+            Ver carteira <ArrowRight size={14} />
+          </button>
         </div>
-      </div>
+
+        {recentClients.length === 0 ? (
+          <div
+            style={{
+              padding: '48px 24px',
+              background: '#FFFFFF',
+              border: '1px solid var(--cream-border)',
+              borderRadius: 'var(--radius-lg)',
+              textAlign: 'center'
+            }}
+          >
+            <p style={{ fontSize: '0.96rem', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+              Nenhum cliente cadastrado ainda.
+            </p>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => onNavigate('clients')}
+              style={{ gap: '6px', margin: '0 auto' }}
+            >
+              <Plus size={15} /> Cadastrar cliente
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid var(--cream-border)',
+              borderRadius: 'var(--radius-lg)',
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+          >
+            <div className="desktop-table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Empresa</th>
+                    <th>Segmento</th>
+                    <th>Contato Principal</th>
+                    <th>Cidade / UF</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentClients.map((client) => (
+                    <tr
+                      key={client.id}
+                      onClick={() => onNavigate('clients', client.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td>
+                        <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.94rem' }}>
+                          {client.companyName}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                        {client.segment}
+                      </td>
+                      <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                        {client.contactName}
+                      </td>
+                      <td style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+                        {client.city ? `${client.city}/${client.state || ''}` : '—'}
+                      </td>
+                      <td>
+                        <Badge status={client.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 };

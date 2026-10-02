@@ -229,7 +229,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             Projetos
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
-            Fluxos de trabalho, etapas e entregas ativas por cliente.
+            Acompanhe projetos ativos, prazos e etapas.
           </p>
         </div>
 

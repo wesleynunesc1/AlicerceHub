@@ -5,6 +5,7 @@ import { AppLayout } from './components/Layout/AppLayout';
 import { NavTab } from './components/Layout/Sidebar';
 
 import { LoginPage } from './pages/Login/LoginPage';
+import { RegisterPage } from './pages/Register/RegisterPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { ClientsPage } from './pages/Clients/ClientsPage';
 import { ProjectsPage } from './pages/Projects/ProjectsPage';
@@ -48,6 +49,12 @@ const MainApp: React.FC = () => {
     return db.getAuthSession().isAuthenticated;
   });
 
+  const [authMode, setAuthMode] = useState<'login' | 'register'>(() => {
+    return window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro'
+      ? 'register'
+      : 'login';
+  });
+
   const [currentTab, setCurrentTab] = useState<NavTab>(() => {
     return pathToTab(window.location.pathname);
   });
@@ -58,6 +65,8 @@ const MainApp: React.FC = () => {
 
     // 1. Sincroniza navegação de histórico do navegador (botão voltar/avançar e F5)
     const handlePopState = () => {
+      const isCadastro = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro';
+      setAuthMode(isCadastro ? 'register' : 'login');
       setCurrentTab(pathToTab(window.location.pathname));
       setTargetId(undefined);
     };
@@ -92,10 +101,27 @@ const MainApp: React.FC = () => {
     setIsAuthenticated(true);
     const tab = pathToTab(window.location.pathname);
     setCurrentTab(tab);
-    if (window.location.pathname === '/' || window.location.pathname === '') {
+    if (window.location.pathname === '/' || window.location.pathname === '' || window.location.pathname === '/login' || window.location.pathname === '/cadastro') {
       window.history.replaceState(null, '', '/dashboard');
     }
     showToast('Bem-vindo ao Alicerce OS!', 'success');
+  };
+
+  const handleRegisterSuccess = () => {
+    setIsAuthenticated(true);
+    window.history.replaceState(null, '', '/dashboard');
+    setCurrentTab('dashboard');
+    showToast('Conta criada com sucesso! Bem-vindo ao Alicerce OS.', 'success');
+  };
+
+  const handleNavigateToRegister = () => {
+    setAuthMode('register');
+    window.history.pushState(null, '', '/cadastro');
+  };
+
+  const handleNavigateToLogin = () => {
+    setAuthMode('login');
+    window.history.pushState(null, '', '/login');
   };
 
   const handleLogout = async () => {
@@ -117,7 +143,20 @@ const MainApp: React.FC = () => {
   };
 
   if (!isAuthenticated) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    if (authMode === 'register') {
+      return (
+        <RegisterPage
+          onRegisterSuccess={handleRegisterSuccess}
+          onNavigateToLogin={handleNavigateToLogin}
+        />
+      );
+    }
+    return (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        onNavigateToRegister={handleNavigateToRegister}
+      />
+    );
   }
 
   return (
