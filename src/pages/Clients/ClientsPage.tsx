@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { db } from '../../services/db';
+import { clientsService } from '../../services/clients';
 import { Client, ClientStatus, ServiceType } from '../../types';
 import { Badge } from '../../components/Common/Badge';
 import { Modal } from '../../components/Common/Modal';
@@ -73,12 +74,26 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     status: 'Ativo' as ClientStatus
   });
 
-  const loadClients = () => {
-    const list = db.getClients();
-    setClients(list);
-    if (selectedClientId) {
-      const found = list.find((c) => c.id === selectedClientId);
-      if (found) setViewingClient(found);
+  const loadClients = async () => {
+    try {
+      const remoteClients = await clientsService.getClients();
+      if (remoteClients && remoteClients.length > 0) {
+        setClients(remoteClients);
+        remoteClients.forEach((c) => db.saveClient(c));
+        if (selectedClientId) {
+          const found = remoteClients.find((c) => c.id === selectedClientId);
+          if (found) setViewingClient(found);
+        }
+      } else {
+        const localList = db.getClients();
+        setClients(localList);
+        if (selectedClientId) {
+          const found = localList.find((c) => c.id === selectedClientId);
+          if (found) setViewingClient(found);
+        }
+      }
+    } catch {
+      setClients(db.getClients());
     }
   };
 
@@ -135,15 +150,14 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
     });
   };
 
-  const handleSaveClient = (e: React.FormEvent) => {
+  const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.companyName || !formData.contactName || !formData.email) {
       showToast('Preencha os campos obrigatórios.', 'error');
       return;
     }
 
-    const clientToSave: Client = {
-      id: editingClient ? editingClient.id : 'cli-' + Date.now(),
+    const payload = {
       companyName: formData.companyName,
       contactName: formData.contactName,
       email: formData.email,
@@ -151,27 +165,44 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
       website: formData.website,
       instagram: formData.instagram,
       segment: formData.segment || 'Geral',
-      services: formData.services.length > 0 ? formData.services : ['Meta Ads'],
+      services: formData.services.length > 0 ? formData.services : (['Meta Ads'] as ServiceType[]),
       startDate: formData.startDate,
       accountManager: formData.accountManager,
       notes: formData.notes,
       status: formData.status,
-      createdAt: editingClient ? editingClient.createdAt : new Date().toISOString()
     };
 
-    db.saveClient(clientToSave);
-    loadClients();
+    if (editingClient) {
+      await clientsService.updateClient(editingClient.id, payload);
+      db.saveClient({
+        ...editingClient,
+        ...payload,
+      });
+      showToast('Cliente atualizado com sucesso!', 'success');
+    } else {
+      const created = await clientsService.createClient(payload);
+      if (created) {
+        db.saveClient(created);
+      } else {
+        const localClient: Client = {
+          id: 'cli-' + Date.now(),
+          ...payload,
+          createdAt: new Date().toISOString(),
+        };
+        db.saveClient(localClient);
+      }
+      showToast('Cliente cadastrado com sucesso!', 'success');
+    }
+
+    await loadClients();
     setIsFormModalOpen(false);
-    showToast(
-      editingClient ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado com sucesso!',
-      'success'
-    );
   };
 
-  const handleDeleteClient = () => {
+  const handleDeleteClient = async () => {
     if (!clientToDelete) return;
+    await clientsService.deleteClient(clientToDelete.id);
     db.deleteClient(clientToDelete.id);
-    loadClients();
+    await loadClients();
     if (viewingClient?.id === clientToDelete.id) {
       setViewingClient(null);
     }

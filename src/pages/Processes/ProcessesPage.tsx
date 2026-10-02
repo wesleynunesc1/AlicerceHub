@@ -17,6 +17,7 @@ import {
   Square
 } from 'lucide-react';
 import { db } from '../../services/db';
+import { processesService } from '../../services/processes';
 import { SOPProcess, ProcessCategory, ProcessStep, ServiceType } from '../../types';
 import { Modal } from '../../components/Common/Modal';
 import { ConfirmDialog } from '../../components/Common/ConfirmDialog';
@@ -65,12 +66,26 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
     steps: [] as ProcessStep[]
   });
 
-  const loadProcesses = () => {
-    const list = db.getProcesses();
-    setProcesses(list);
-    if (selectedProcessId) {
-      const found = list.find((p) => p.id === selectedProcessId);
-      if (found) setViewingProcess(found);
+  const loadProcesses = async () => {
+    try {
+      const remoteProcesses = await processesService.getProcesses();
+      if (remoteProcesses && remoteProcesses.length > 0) {
+        setProcesses(remoteProcesses);
+        remoteProcesses.forEach((pr) => db.saveProcess(pr));
+        if (selectedProcessId) {
+          const found = remoteProcesses.find((p) => p.id === selectedProcessId);
+          if (found) setViewingProcess(found);
+        }
+      } else {
+        const list = db.getProcesses();
+        setProcesses(list);
+        if (selectedProcessId) {
+          const found = list.find((p) => p.id === selectedProcessId);
+          if (found) setViewingProcess(found);
+        }
+      }
+    } catch {
+      setProcesses(db.getProcesses());
     }
   };
 
@@ -124,40 +139,54 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSaveProcess = (e: React.FormEvent) => {
+  const handleSaveProcess = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.description) {
       showToast('Preencha os campos obrigatórios.', 'error');
       return;
     }
 
-    const procToSave: SOPProcess = {
-      id: editingProcess ? editingProcess.id : 'proc-' + Date.now(),
+    const payload = {
       title: formData.title,
       service: formData.service,
       category: formData.category,
       description: formData.description,
       responsible: formData.responsible,
       steps: formData.steps,
-      updatedAt: new Date().toISOString().split('T')[0]
     };
 
-    db.saveProcess(procToSave);
-    loadProcesses();
-    if (viewingProcess && viewingProcess.id === procToSave.id) {
-      setViewingProcess(procToSave);
+    if (editingProcess) {
+      await processesService.updateProcess(editingProcess.id, payload);
+      db.saveProcess({
+        ...editingProcess,
+        ...payload,
+        updatedAt: new Date().toISOString().split('T')[0],
+      });
+      showToast('Processo atualizado com sucesso!', 'success');
+    } else {
+      const created = await processesService.createProcess(payload);
+      if (created) {
+        db.saveProcess(created);
+      } else {
+        const localProc: SOPProcess = {
+          id: 'proc-' + Date.now(),
+          ...payload,
+          updatedAt: new Date().toISOString().split('T')[0],
+        };
+        db.saveProcess(localProc);
+      }
+      showToast('Processo SOP criado com sucesso!', 'success');
     }
+
+    await loadProcesses();
     setIsModalOpen(false);
-    showToast(
-      editingProcess ? 'Processo atualizado com sucesso!' : 'Processo SOP criado!',
-      'success'
-    );
   };
 
-  const handleDeleteProcess = () => {
+  const handleDeleteProcess = async () => {
     if (!processToDelete) return;
+    await processesService.deleteProcess(processToDelete.id);
     db.deleteProcess(processToDelete.id);
-    loadProcesses();
+    await loadProcesses();
     if (viewingProcess?.id === processToDelete.id) {
       setViewingProcess(null);
     }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Mail, Shield, Phone, KeyRound, CheckCircle2, Lock } from 'lucide-react';
 import { db } from '../../services/db';
+import { authService } from '../../services/auth';
 import { useToast } from '../../components/Common/Toast';
 import { UserProfile } from '../../types';
 
@@ -17,7 +18,7 @@ export const ProfilePage: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const updated: UserProfile = {
       ...user,
@@ -28,6 +29,7 @@ export const ProfilePage: React.FC = () => {
     };
     db.saveUser(updated);
     setUser(updated);
+    await authService.updateProfile(user.id, { name, role });
     showToast('Perfil atualizado com sucesso!', 'success');
   };
 

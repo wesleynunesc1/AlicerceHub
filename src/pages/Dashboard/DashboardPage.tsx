@@ -12,6 +12,9 @@ import {
   GitMerge
 } from 'lucide-react';
 import { db } from '../../services/db';
+import { dashboardService, DashboardMetrics } from '../../services/dashboard';
+import { projectsService } from '../../services/projects';
+import { clientsService } from '../../services/clients';
 import { Badge } from '../../components/Common/Badge';
 import { NavTab } from '../../components/Layout/Sidebar';
 import { Project, Client, ActivityItem } from '../../types';
@@ -24,24 +27,49 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const user = db.getUser();
 
   useEffect(() => {
-    setClients(db.getClients());
-    setProjects(db.getProjects());
-    setActivities(db.getActivities());
+    const loadDashboard = async () => {
+      try {
+        const [remoteProjects, remoteClients, remoteMetrics, remoteActivities] = await Promise.all([
+          projectsService.getProjects(),
+          clientsService.getClients(),
+          dashboardService.getMetrics(),
+          dashboardService.getRecentActivities(),
+        ]);
+
+        if (remoteProjects && remoteProjects.length > 0) setProjects(remoteProjects);
+        else setProjects(db.getProjects());
+
+        if (remoteClients && remoteClients.length > 0) setClients(remoteClients);
+        else setClients(db.getClients());
+
+        if (remoteActivities && remoteActivities.length > 0) setActivities(remoteActivities);
+        else setActivities(db.getActivities());
+
+        if (remoteMetrics) setMetrics(remoteMetrics);
+      } catch {
+        setProjects(db.getProjects());
+        setClients(db.getClients());
+        setActivities(db.getActivities());
+      }
+    };
+
+    loadDashboard();
   }, []);
 
-  const activeClientsCount = clients.filter((c) => c.status === 'Ativo').length;
-  const inProgressProjectsCount = projects.filter((p) => p.status === 'Em produção').length;
-  const waitingClientProjectsCount = projects.filter((p) => p.status === 'Aguardando cliente').length;
+  const activeClientsCount = metrics?.activeClientsCount ?? clients.filter((c) => c.status === 'Ativo').length;
+  const inProgressProjectsCount = metrics?.inProgressProjectsCount ?? projects.filter((p) => p.status === 'Em produção' || p.status === 'Planejamento' || p.status === 'Revisão').length;
+  const waitingClientProjectsCount = metrics?.waitingClientProjectsCount ?? projects.filter((p) => p.status === 'Aguardando cliente').length;
 
   const upcomingDeliveries = [...projects]
     .filter((p) => p.status !== 'Finalizado')
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
     .slice(0, 4);
 
-  const upcomingCount = upcomingDeliveries.length;
+  const upcomingCount = metrics?.upcomingCount ?? upcomingDeliveries.length;
   const recentProjects = [...projects].slice(0, 5);
 
   const getGreeting = () => {

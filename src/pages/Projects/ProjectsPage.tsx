@@ -9,6 +9,8 @@ import {
   Trash2
 } from 'lucide-react';
 import { db } from '../../services/db';
+import { projectsService } from '../../services/projects';
+import { clientsService } from '../../services/clients';
 import { Project, ProjectStatus, ServiceType, Client } from '../../types';
 import { Badge } from '../../components/Common/Badge';
 import { Modal } from '../../components/Common/Modal';
@@ -54,15 +56,38 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     status: 'Planejamento' as ProjectStatus
   });
 
-  const loadData = () => {
-    const pList = db.getProjects();
-    const cList = db.getClients();
-    setProjects(pList);
-    setClients(cList);
+  const loadData = async () => {
+    try {
+      const [remoteProjects, remoteClients] = await Promise.all([
+        projectsService.getProjects(),
+        clientsService.getClients(),
+      ]);
 
-    if (selectedProjectId) {
-      const found = pList.find((p) => p.id === selectedProjectId);
-      if (found) setActiveProject(found);
+      if (remoteProjects && remoteProjects.length > 0) {
+        setProjects(remoteProjects);
+        remoteProjects.forEach((p) => db.saveProject(p));
+        if (selectedProjectId) {
+          const found = remoteProjects.find((p) => p.id === selectedProjectId);
+          if (found) setActiveProject(found);
+        }
+      } else {
+        const pList = db.getProjects();
+        setProjects(pList);
+        if (selectedProjectId) {
+          const found = pList.find((p) => p.id === selectedProjectId);
+          if (found) setActiveProject(found);
+        }
+      }
+
+      if (remoteClients && remoteClients.length > 0) {
+        setClients(remoteClients);
+        remoteClients.forEach((c) => db.saveClient(c));
+      } else {
+        setClients(db.getClients());
+      }
+    } catch {
+      setProjects(db.getProjects());
+      setClients(db.getClients());
     }
   };
 
@@ -108,7 +133,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSaveProject = (e: React.FormEvent) => {
+  const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.clientId || !formData.dueDate) {
       showToast('Preencha os campos obrigatórios.', 'error');
@@ -118,18 +143,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     const selectedClient = clients.find((c) => c.id === formData.clientId);
     const clientName = selectedClient ? selectedClient.companyName : 'Cliente';
 
-    // Standard initial stages if new
-    const initialStages = [
-      { id: 'stg-1', title: 'Briefing e Alinhamento Estratégico', completed: false },
-      { id: 'stg-2', title: 'Auditoria de Acessos e Ativos', completed: false },
-      { id: 'stg-3', title: 'Planejamento e Cronograma de Execução', completed: false },
-      { id: 'stg-4', title: 'Produção e Desenvolvimento', completed: false },
-      { id: 'stg-5', title: 'Revisão Interna de Qualidade', completed: false },
-      { id: 'stg-6', title: 'Aprovação e Entrega Final ao Cliente', completed: false }
-    ];
-
-    const projToSave: Project = {
-      id: editingProject ? editingProject.id : 'proj-' + Date.now(),
+    const payload = {
       name: formData.name,
       clientId: formData.clientId,
       clientName,
@@ -140,28 +154,42 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       description: formData.description,
       status: formData.status,
       progress: editingProject ? editingProject.progress : 0,
-      stages: editingProject ? editingProject.stages : initialStages,
+      stages: editingProject ? editingProject.stages : [],
       notes: editingProject ? editingProject.notes : '',
       relatedMaterials: editingProject ? editingProject.relatedMaterials : [],
-      createdAt: editingProject ? editingProject.createdAt : new Date().toISOString()
     };
 
-    db.saveProject(projToSave);
-    loadData();
-    if (activeProject && activeProject.id === projToSave.id) {
-      setActiveProject(projToSave);
+    if (editingProject) {
+      await projectsService.updateProject(editingProject.id, payload);
+      db.saveProject({
+        ...editingProject,
+        ...payload,
+      });
+      showToast('Projeto atualizado com sucesso!', 'success');
+    } else {
+      const created = await projectsService.createProject(payload);
+      if (created) {
+        db.saveProject(created);
+      } else {
+        const localProj: Project = {
+          id: 'proj-' + Date.now(),
+          ...payload,
+          createdAt: new Date().toISOString(),
+        };
+        db.saveProject(localProj);
+      }
+      showToast('Projeto criado com sucesso!', 'success');
     }
+
+    await loadData();
     setIsModalOpen(false);
-    showToast(
-      editingProject ? 'Projeto atualizado com sucesso!' : 'Projeto criado com sucesso!',
-      'success'
-    );
   };
 
-  const handleDeleteProject = () => {
+  const handleDeleteProject = async () => {
     if (!projectToDelete) return;
+    await projectsService.deleteProject(projectToDelete.id);
     db.deleteProject(projectToDelete.id);
-    loadData();
+    await loadData();
     if (activeProject?.id === projectToDelete.id) {
       setActiveProject(null);
     }

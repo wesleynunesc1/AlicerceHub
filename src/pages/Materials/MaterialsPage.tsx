@@ -13,6 +13,7 @@ import {
   Download
 } from 'lucide-react';
 import { db } from '../../services/db';
+import { materialsService } from '../../services/materials';
 import { Material, MaterialCategory } from '../../types';
 import { Modal } from '../../components/Common/Modal';
 import { ConfirmDialog } from '../../components/Common/ConfirmDialog';
@@ -47,6 +48,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null);
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     title: '',
@@ -54,12 +58,23 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
     description: '',
     responsible: 'Wesley Nunes',
     externalLink: '',
+    fileUrl: '',
     fileType: 'pdf' as 'pdf' | 'doc' | 'sheet' | 'figma' | 'link' | 'archive',
     fileSize: '1.2 MB'
   });
 
-  const loadMaterials = () => {
-    setMaterials(db.getMaterials());
+  const loadMaterials = async () => {
+    try {
+      const remoteMaterials = await materialsService.getMaterials();
+      if (remoteMaterials && remoteMaterials.length > 0) {
+        setMaterials(remoteMaterials);
+        remoteMaterials.forEach((m) => db.saveMaterial(m));
+      } else {
+        setMaterials(db.getMaterials());
+      }
+    } catch {
+      setMaterials(db.getMaterials());
+    }
   };
 
   useEffect(() => {
@@ -68,12 +83,14 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
 
   const handleOpenCreate = () => {
     setEditingMaterial(null);
+    setSelectedFile(null);
     setFormData({
       title: '',
       category: 'Briefings',
       description: '',
       responsible: 'Wesley Nunes',
       externalLink: '',
+      fileUrl: '',
       fileType: 'doc',
       fileSize: '500 KB'
     });
@@ -83,50 +100,85 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
   const handleOpenEdit = (mat: Material, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingMaterial(mat);
+    setSelectedFile(null);
     setFormData({
       title: mat.title,
       category: mat.category,
       description: mat.description,
       responsible: mat.responsible,
       externalLink: mat.externalLink || '',
+      fileUrl: mat.fileUrl || '',
       fileType: mat.fileType || 'pdf',
       fileSize: mat.fileSize || '1.0 MB'
     });
     setIsModalOpen(true);
   };
 
-  const handleSaveMaterial = (e: React.FormEvent) => {
+  const handleSaveMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.description) {
       showToast('Preencha os campos obrigatórios.', 'error');
       return;
     }
 
-    const matToSave: Material = {
-      id: editingMaterial ? editingMaterial.id : 'mat-' + Date.now(),
+    let finalFileUrl = formData.fileUrl;
+
+    if (selectedFile) {
+      setIsUploading(true);
+      showToast('Enviando arquivo para o Supabase Storage...', 'info');
+      const uploadRes = await materialsService.uploadFile(selectedFile);
+      setIsUploading(false);
+
+      if (uploadRes.publicUrl) {
+        finalFileUrl = uploadRes.publicUrl;
+      } else {
+        showToast(uploadRes.error || 'Aviso: arquivo mantido localmente.', 'info');
+      }
+    }
+
+    const payload = {
       title: formData.title,
       category: formData.category,
       description: formData.description,
       responsible: formData.responsible,
       externalLink: formData.externalLink,
+      fileUrl: finalFileUrl,
       fileType: formData.fileType,
-      fileSize: formData.fileSize,
-      updatedAt: new Date().toISOString().split('T')[0]
+      fileSize: selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB` : formData.fileSize,
     };
 
-    db.saveMaterial(matToSave);
-    loadMaterials();
+    if (editingMaterial) {
+      await materialsService.updateMaterial(editingMaterial.id, payload);
+      db.saveMaterial({
+        ...editingMaterial,
+        ...payload,
+        updatedAt: new Date().toISOString().split('T')[0],
+      });
+      showToast('Material atualizado com sucesso!', 'success');
+    } else {
+      const created = await materialsService.createMaterial(payload);
+      if (created) {
+        db.saveMaterial(created);
+      } else {
+        const localMat: Material = {
+          id: 'mat-' + Date.now(),
+          ...payload,
+          updatedAt: new Date().toISOString().split('T')[0],
+        };
+        db.saveMaterial(localMat);
+      }
+      showToast('Material adicionado à biblioteca!', 'success');
+    }
+
+    await loadMaterials();
     setIsModalOpen(false);
-    showToast(
-      editingMaterial ? 'Material atualizado com sucesso!' : 'Material adicionado à biblioteca!',
-      'success'
-    );
   };
 
-  const handleDeleteMaterial = () => {
+  const handleDeleteMaterial = async () => {
     if (!materialToDelete) return;
+    await materialsService.deleteMaterial(materialToDelete.id);
     db.deleteMaterial(materialToDelete.id);
-    loadMaterials();
+    await loadMaterials();
     showToast('Material removido.', 'info');
     setMaterialToDelete(null);
   };
@@ -478,6 +530,26 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
                 onChange={(e) => setFormData({ ...formData, externalLink: e.target.value })}
               />
             </div>
+          </div>
+
+          {/* Upload de arquivo direto para o Supabase Storage */}
+          <div className="form-group">
+            <label className="form-label">Upload de Arquivo (Supabase Storage: PDF, DOCX, XLSX, Imagem)</label>
+            <input
+              type="file"
+              className="form-input"
+              style={{ height: 'auto', padding: '10px' }}
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  setSelectedFile(e.target.files[0]);
+                }
+              }}
+            />
+            {selectedFile && (
+              <span style={{ fontSize: '0.8rem', color: 'var(--green-primary)', fontWeight: 600, marginTop: '4px' }}>
+                ✓ Arquivo selecionado: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+              </span>
+            )}
           </div>
 
           <div className="form-group">

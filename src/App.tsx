@@ -13,6 +13,7 @@ import { MaterialsPage } from './pages/Materials/MaterialsPage';
 import { BrandCenterPage } from './pages/BrandCenter/BrandCenterPage';
 import { ProfilePage } from './pages/Profile/ProfilePage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
+import { authService } from './services/auth';
 
 const MainApp: React.FC = () => {
   const { showToast } = useToast();
@@ -25,6 +26,29 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     db.init();
+
+    // 1. Verifica sessão existente no Supabase Auth
+    authService.getSession().then((session) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+        db.setAuthSession({ isAuthenticated: true, email: session.user.email || '' });
+      }
+    });
+
+    // 2. Monitora mudanças de estado de autenticação em tempo real
+    const { data: authListener } = authService.onAuthStateChange((session, profile) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+        db.setAuthSession({ isAuthenticated: true, email: session.user.email || '' });
+        if (profile) db.saveUser(profile);
+      } else if (!db.getAuthSession().isAuthenticated) {
+        setIsAuthenticated(false);
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   const handleLoginSuccess = () => {
@@ -33,7 +57,8 @@ const MainApp: React.FC = () => {
     showToast('Bem-vindo ao Alicerce OS!', 'success');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authService.signOut();
     db.setAuthSession({ isAuthenticated: false, email: '' });
     setIsAuthenticated(false);
     showToast('Sessão encerrada com segurança.', 'info');

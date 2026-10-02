@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Project, ProjectStage, ProjectStatus } from '../../types';
 import { db } from '../../services/db';
+import { projectsService } from '../../services/projects';
 import { Badge } from '../../components/Common/Badge';
 import { useToast } from '../../components/Common/Toast';
 import {
@@ -34,9 +35,12 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
   const [notes, setNotes] = useState(project.notes || '');
 
   // Toggle stage completion
-  const handleToggleStage = (stageId: string) => {
+  const handleToggleStage = async (stageId: string) => {
+    const stage = currentProject.stages.find((s) => s.id === stageId);
+    const newCompleted = stage ? !stage.completed : false;
+
     const updatedStages = currentProject.stages.map((stg) =>
-      stg.id === stageId ? { ...stg, completed: !stg.completed } : stg
+      stg.id === stageId ? { ...stg, completed: newCompleted } : stg
     );
     const completedCount = updatedStages.filter((s) => s.completed).length;
     const progress = Math.round((completedCount / updatedStages.length) * 100);
@@ -51,6 +55,9 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     db.saveProject(updatedProj);
     onUpdate(updatedProj);
     showToast('Etapa atualizada!', 'info');
+
+    // Persiste no Supabase
+    await projectsService.toggleStep(currentProject.id, stageId, newCompleted);
   };
 
   // Add new stage
@@ -102,7 +109,7 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
   };
 
   // Change project status
-  const handleStatusChange = (newStatus: ProjectStatus) => {
+  const handleStatusChange = async (newStatus: ProjectStatus) => {
     const updatedProj: Project = {
       ...currentProject,
       status: newStatus
@@ -111,10 +118,13 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     db.saveProject(updatedProj);
     onUpdate(updatedProj);
     showToast(`Status alterado para "${newStatus}"`, 'success');
+
+    // Persiste no Supabase
+    await projectsService.updateProject(currentProject.id, { status: newStatus });
   };
 
   // Save notes
-  const handleSaveNotes = () => {
+  const handleSaveNotes = async () => {
     const updatedProj: Project = {
       ...currentProject,
       notes
@@ -123,6 +133,9 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     db.saveProject(updatedProj);
     onUpdate(updatedProj);
     showToast('Observações salvas com sucesso!', 'success');
+
+    // Persiste no Supabase
+    await projectsService.updateProject(currentProject.id, { description: notes });
   };
 
   return (

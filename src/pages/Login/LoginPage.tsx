@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Lock, Mail, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { db } from '../../services/db';
+import { authService } from '../../services/auth';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -16,7 +17,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [forgotSent, setForgotSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -27,15 +28,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (email.includes('@')) {
+    try {
+      // 1. Tenta autenticar via Supabase Auth
+      const res = await authService.signIn(email, password);
+
+      if (res.success) {
         db.setAuthSession({ isAuthenticated: true, email });
+        if (res.profile) {
+          db.saveUser(res.profile);
+        }
         onLoginSuccess();
       } else {
-        setError('E-mail ou senha incorretos.');
+        // Fallback para credenciais de demonstração caso o usuário ainda não tenha rodado o SQL
+        if (email === 'admin@alicerce.com' && password === 'alicerce2025') {
+          db.setAuthSession({ isAuthenticated: true, email });
+          onLoginSuccess();
+        } else {
+          setError(res.error || 'Credenciais inválidas no Supabase Auth.');
+        }
       }
+    } catch (err: any) {
+      setError(err?.message || 'Falha ao autenticar.');
+    } finally {
       setIsLoading(false);
-    }, 450);
+    }
   };
 
   const handleFillDemo = () => {
