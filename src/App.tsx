@@ -15,19 +15,55 @@ import { ProfilePage } from './pages/Profile/ProfilePage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
 import { authService } from './services/auth';
 
+const tabToPath = (tab: NavTab): string => {
+  switch (tab) {
+    case 'dashboard': return '/dashboard';
+    case 'clients': return '/clientes';
+    case 'projects': return '/projetos';
+    case 'processes': return '/processos';
+    case 'materials': return '/materiais';
+    case 'brand-center': return '/brand-center';
+    case 'profile': return '/perfil';
+    case 'settings': return '/configuracoes';
+    default: return '/dashboard';
+  }
+};
+
+const pathToTab = (pathname: string): NavTab => {
+  const clean = pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (!clean || clean === 'dashboard') return 'dashboard';
+  if (clean === 'clientes' || clean === 'clients') return 'clients';
+  if (clean === 'projetos' || clean === 'projects') return 'projects';
+  if (clean === 'processos' || clean === 'processes') return 'processes';
+  if (clean === 'materiais' || clean === 'materials') return 'materials';
+  if (clean === 'brand-center' || clean === 'brand') return 'brand-center';
+  if (clean === 'perfil' || clean === 'profile') return 'profile';
+  if (clean === 'configuracoes' || clean === 'settings') return 'settings';
+  return 'dashboard';
+};
+
 const MainApp: React.FC = () => {
   const { showToast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return db.getAuthSession().isAuthenticated;
   });
 
-  const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
+  const [currentTab, setCurrentTab] = useState<NavTab>(() => {
+    return pathToTab(window.location.pathname);
+  });
   const [targetId, setTargetId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     db.init();
 
-    // 1. Verifica sessão existente no Supabase Auth
+    // 1. Sincroniza navegação de histórico do navegador (botão voltar/avançar e F5)
+    const handlePopState = () => {
+      setCurrentTab(pathToTab(window.location.pathname));
+      setTargetId(undefined);
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    // 2. Verifica sessão existente no Supabase Auth
     authService.getSession().then((session) => {
       if (session?.user) {
         setIsAuthenticated(true);
@@ -35,7 +71,7 @@ const MainApp: React.FC = () => {
       }
     });
 
-    // 2. Monitora mudanças de estado de autenticação em tempo real
+    // 3. Monitora mudanças de estado de autenticação em tempo real
     const { data: authListener } = authService.onAuthStateChange((session, profile) => {
       if (session?.user) {
         setIsAuthenticated(true);
@@ -47,13 +83,18 @@ const MainApp: React.FC = () => {
     });
 
     return () => {
+      window.removeEventListener('popstate', handlePopState);
       authListener?.subscription?.unsubscribe?.();
     };
   }, []);
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
-    setCurrentTab('dashboard');
+    const tab = pathToTab(window.location.pathname);
+    setCurrentTab(tab);
+    if (window.location.pathname === '/' || window.location.pathname === '') {
+      window.history.replaceState(null, '', '/dashboard');
+    }
     showToast('Bem-vindo ao Alicerce OS!', 'success');
   };
 
@@ -61,12 +102,17 @@ const MainApp: React.FC = () => {
     await authService.signOut();
     db.setAuthSession({ isAuthenticated: false, email: '' });
     setIsAuthenticated(false);
+    window.history.replaceState(null, '', '/');
     showToast('Sessão encerrada com segurança.', 'info');
   };
 
   const handleNavigate = (tab: NavTab, id?: string) => {
     setCurrentTab(tab);
     setTargetId(id);
+    const newPath = tabToPath(tab);
+    if (window.location.pathname !== newPath) {
+      window.history.pushState(null, '', newPath);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
