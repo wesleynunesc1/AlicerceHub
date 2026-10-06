@@ -491,6 +491,21 @@ export const TasksPage: React.FC<TasksPageProps> = ({
     );
   };
 
+  const getAgencyTaskTag = (task: Task): string | null => {
+    const text = `${task.title} ${task.description || ''} ${task.projectName || ''}`.toLowerCase();
+    if (text.includes('design') || text.includes('arte') || text.includes('banner') || text.includes('criativo') || text.includes('layout')) return 'Design';
+    if (text.includes('copy') || text.includes('legenda') || text.includes('roteiro') || text.includes('texto')) return 'Copy';
+    if (text.includes('tráfego') || text.includes('meta ads') || text.includes('google ads') || text.includes('campanha') || text.includes('anúncio') || text.includes('cbo') || text.includes('público')) return 'Tráfego';
+    if (text.includes('web') || text.includes('site') || text.includes('landing') || text.includes('página') || text.includes('lp') || text.includes('pixel') || text.includes('domínio')) return 'Web';
+    if (text.includes('vídeo') || text.includes('video') || text.includes('edição') || text.includes('reels') || text.includes('corte')) return 'Vídeo';
+    if (text.includes('social') || text.includes('post') || text.includes('stories') || text.includes('carrossel') || text.includes('feed')) return 'Social Media';
+    if (text.includes('estratégia') || text.includes('planejamento') || text.includes('briefing') || text.includes('diagnóstico')) return 'Estratégia';
+    if (text.includes('comercial') || text.includes('proposta') || text.includes('lead') || text.includes('venda') || text.includes('fechamento')) return 'Comercial';
+    if (text.includes('aprova') || text.includes('revisão') || text.includes('validação')) return 'Aprovação';
+    if (text.includes('reunião') || text.includes('cliente') || text.includes('onboarding') || text.includes('alinhamento') || text.includes('atendimento')) return 'Atendimento';
+    return null;
+  };
+
   const kanbanColumns: TaskStatus[] = ['Pendente', 'Em andamento', 'Aguardando', 'Concluída'];
 
   return (
@@ -498,11 +513,25 @@ export const TasksPage: React.FC<TasksPageProps> = ({
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
-            Tarefas
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'var(--sand-gold-dark)',
+                fontFamily: 'var(--font-heading)'
+              }}
+            >
+              Fluxo Operacional
+            </span>
+          </div>
+          <h1 className="font-heading" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+            Tarefas & Demandas
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', margin: 0, fontWeight: 450 }}>
-            Demandas operacionais, prazos de entrega e responsabilidades da equipe.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', margin: '4px 0 0', fontWeight: 400 }}>
+            Quadro Kanban com arrastar e soltar, etiquetas de agência e criação ágil por comando natural.
           </p>
         </div>
 
@@ -676,6 +705,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
                   {columnTasks.map((task) => {
                     const isLate = Boolean(task.dueDate && task.status !== 'Concluída' && task.dueDate < todayStr);
                     const isBeingDragged = draggedTaskId === task.id;
+                    const agencyTag = getAgencyTaskTag(task);
 
                     return (
                       <div
@@ -711,6 +741,25 @@ export const TasksPage: React.FC<TasksPageProps> = ({
                           </span>
                           {getPriorityBadge(task.priority)}
                         </div>
+
+                        {agencyTag && (
+                          <div style={{ display: 'flex' }}>
+                            <span
+                              style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 650,
+                                padding: '2px 7px',
+                                borderRadius: 'var(--radius-sm)',
+                                background: 'var(--cream-subtle)',
+                                color: 'var(--green-deep)',
+                                border: '1px solid var(--cream-border)',
+                                fontFamily: 'var(--font-heading)'
+                              }}
+                            >
+                              {agencyTag}
+                            </span>
+                          </div>
+                        )}
 
                         {(task.projectName || task.clientName) && (
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>

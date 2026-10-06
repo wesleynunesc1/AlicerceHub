@@ -10,8 +10,19 @@ import {
   Trash2,
   Edit2,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Globe,
+  MessageCircle,
+  HardDrive
 } from 'lucide-react';
+
+const InstagramIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+  </svg>
+);
 import { db } from '../../services/db';
 import { clientsService } from '../../services/clients';
 import { Client, ClientStatus, ServiceType } from '../../types';
@@ -235,11 +246,25 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
         }}
       >
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)' }}>
-            Clientes
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'var(--sand-gold-dark)',
+                fontFamily: 'var(--font-heading)'
+              }}
+            >
+              Carteira Operacional
+            </span>
+          </div>
+          <h1 className="font-heading" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+            Contas & Clientes
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
-            Gerencie clientes, contatos, contratos e status da conta.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: 400, marginTop: '4px' }}>
+            Central de contas atendidas pela agência, serviços ativos, responsáveis e canais operacionais.
           </p>
         </div>
 
@@ -248,7 +273,7 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
           onClick={handleOpenCreate}
           style={{ gap: '8px', padding: '12px 24px', fontSize: '0.96rem' }}
         >
-          <Plus size={18} /> Novo Cliente
+          <Plus size={18} /> Nova Conta
         </button>
       </div>
 
@@ -603,6 +628,84 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
                       +{client.services.length - 3}
                     </span>
                   )}
+                </div>
+
+                {/* Atalhos Rápidos da Agência */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    margin: '10px 0 4px',
+                    padding: '8px 10px',
+                    background: 'var(--cream-subtle)',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginRight: '2px', fontFamily: 'var(--font-heading)' }}>
+                    Atalhos:
+                  </span>
+                  {client.instagram && (
+                    <a
+                      href={client.instagram.startsWith('http') ? client.instagram : `https://instagram.com/${client.instagram.replace('@', '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="sidebar-collapse-btn"
+                      title="Instagram da Conta"
+                      style={{ padding: '3px 5px', color: '#E1306C' }}
+                    >
+                      <InstagramIcon size={14} />
+                    </a>
+                  )}
+                  {client.website && (
+                    <a
+                      href={client.website.startsWith('http') ? client.website : `https://${client.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="sidebar-collapse-btn"
+                      title="Site da Conta"
+                      style={{ padding: '3px 5px', color: 'var(--green-primary)' }}
+                    >
+                      <Globe size={14} />
+                    </a>
+                  )}
+                  {client.phone && (
+                    <a
+                      href={`https://wa.me/55${client.phone.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="sidebar-collapse-btn"
+                      title="WhatsApp do Cliente"
+                      style={{ padding: '3px 5px', color: '#16A34A' }}
+                    >
+                      <MessageCircle size={14} />
+                    </a>
+                  )}
+                  <button
+                    className="sidebar-collapse-btn"
+                    title="Meta Business / Anúncios"
+                    onClick={() => window.open('https://adsmanager.facebook.com', '_blank')}
+                    style={{ padding: '3px 5px', color: '#2563EB', fontSize: '0.7rem', fontWeight: 700 }}
+                  >
+                    Meta
+                  </button>
+                  <button
+                    className="sidebar-collapse-btn"
+                    title="Google Ads"
+                    onClick={() => window.open('https://ads.google.com', '_blank')}
+                    style={{ padding: '3px 5px', color: '#EA4335', fontSize: '0.7rem', fontWeight: 700 }}
+                  >
+                    GAds
+                  </button>
+                  <button
+                    className="sidebar-collapse-btn"
+                    title="Google Drive"
+                    onClick={() => window.open('https://drive.google.com', '_blank')}
+                    style={{ padding: '3px 5px', color: '#F59E0B' }}
+                  >
+                    <HardDrive size={13} />
+                  </button>
                 </div>
               </div>
 

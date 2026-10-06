@@ -132,11 +132,25 @@ export const ContentPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'var(--sand-gold-dark)',
+                fontFamily: 'var(--font-heading)'
+              }}
+            >
+              Central Editorial da Agência
+            </span>
+          </div>
+          <h1 className="font-heading" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
             Planejamento de Conteúdo
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', margin: 0, fontWeight: 450 }}>
-            Fluxo editorial de pautas, roteiros, peças visuais e publicações estratégicas.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', margin: '4px 0 0', fontWeight: 400 }}>
+            Fluxo editorial: Ideia → Roteiro → Design → Revisão → Aprovado → Publicado.
           </p>
         </div>
 

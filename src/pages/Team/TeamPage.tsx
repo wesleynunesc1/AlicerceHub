@@ -88,12 +88,32 @@ export const TeamPage: React.FC = () => {
                       {member.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-heading)' }}>
                         {member.name}
                       </h3>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        {member.role}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                          {member.role}
+                        </span>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          background: 'rgba(27, 99, 70, 0.08)',
+                          color: 'var(--green-deep)',
+                          fontFamily: 'var(--font-heading)'
+                        }}>
+                          {member.role?.toLowerCase().includes('design') ? 'Design' :
+                           member.role?.toLowerCase().includes('tráfego') || member.role?.toLowerCase().includes('traffic') || member.role?.toLowerCase().includes('gestor') ? 'Tráfego & Ads' :
+                           member.role?.toLowerCase().includes('dev') || member.role?.toLowerCase().includes('web') ? 'Web & Dev' :
+                           member.role?.toLowerCase().includes('social') || member.role?.toLowerCase().includes('conteúdo') ? 'Social Media' :
+                           member.role?.toLowerCase().includes('copy') ? 'Copywriting' :
+                           member.role?.toLowerCase().includes('vídeo') || member.role?.toLowerCase().includes('video') ? 'Vídeo & Motion' :
+                           member.role?.toLowerCase().includes('comercial') || member.role?.toLowerCase().includes('vendas') ? 'Comercial' :
+                           'Estratégia & Operação'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -104,7 +124,8 @@ export const TeamPage: React.FC = () => {
                       padding: '2px 8px',
                       borderRadius: 'var(--radius-full)',
                       background: member.status === 'Ativo' ? '#EAF5EE' : 'var(--cream-subtle)',
-                      color: member.status === 'Ativo' ? '#1B6346' : 'var(--text-muted)'
+                      color: member.status === 'Ativo' ? '#1B6346' : 'var(--text-muted)',
+                      fontFamily: 'var(--font-heading)'
                     }}
                   >
                     {member.status}

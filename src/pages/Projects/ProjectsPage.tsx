@@ -6,7 +6,15 @@ import {
   LayoutGrid,
   List,
   Edit,
-  Trash2
+  Trash2,
+  Palette,
+  Globe,
+  Megaphone,
+  Share2,
+  Video,
+  Sparkles,
+  Compass,
+  MapPin
 } from 'lucide-react';
 import { db } from '../../services/db';
 import { projectsService } from '../../services/projects';
@@ -14,6 +22,19 @@ import { clientsService } from '../../services/clients';
 import { phase2Service } from '../../services/phase2';
 import { Project, ProjectStatus, ServiceType, Client, ProjectTemplate } from '../../types';
 import { Badge } from '../../components/Common/Badge';
+
+export const getProjectCategoryIcon = (service?: string) => {
+  const s = (service || '').toLowerCase();
+  if (s.includes('branding') || s.includes('identidade')) return <Palette size={13} />;
+  if (s.includes('site') || s.includes('landing page')) return <Globe size={13} />;
+  if (s.includes('ads') || s.includes('meta') || s.includes('google')) return <Megaphone size={13} />;
+  if (s.includes('social') || s.includes('conteúdo')) return <Share2 size={13} />;
+  if (s.includes('vídeo')) return <Video size={13} />;
+  if (s.includes('criativo')) return <Sparkles size={13} />;
+  if (s.includes('estratégia') || s.includes('plano')) return <Compass size={13} />;
+  if (s.includes('negócio') || s.includes('local')) return <MapPin size={13} />;
+  return <Briefcase size={13} />;
+};
 import { Modal } from '../../components/Common/Modal';
 import { ConfirmDialog } from '../../components/Common/ConfirmDialog';
 import { useToast } from '../../components/Common/Toast';
@@ -278,11 +299,25 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         }}
       >
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)' }}>
-            Projetos
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'var(--sand-gold-dark)',
+                fontFamily: 'var(--font-heading)'
+              }}
+            >
+              Operação Criativa
+            </span>
+          </div>
+          <h1 className="font-heading" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+            Projetos & Produção
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
-            Acompanhe projetos ativos, prazos e etapas.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: 400, marginTop: '4px' }}>
+            Acompanhamento de entregas, cronogramas, etapas operacionais e categorias de serviço.
           </p>
         </div>
 
@@ -600,8 +635,25 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   <Badge status={proj.status} />
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-                  <Badge status={proj.service} type="service" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--cream-subtle)',
+                      border: '1px solid var(--cream-border)',
+                      fontSize: '0.78rem',
+                      fontWeight: 650,
+                      color: 'var(--green-deep)',
+                      fontFamily: 'var(--font-heading)'
+                    }}
+                  >
+                    {getProjectCategoryIcon(proj.service)}
+                    <span>{proj.service}</span>
+                  </div>
                 </div>
 
                 <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '18px', fontWeight: 450 }}>

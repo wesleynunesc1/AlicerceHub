@@ -12,7 +12,13 @@ import {
   History,
   FileCheck,
   Send,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  Palette,
+  Video,
+  Image,
+  Globe,
+  Check
 } from 'lucide-react';
 import { ApprovalItem, ApprovalStatus, Project, Client } from '../../types';
 import { phase2Service } from '../../services/phase2';
@@ -177,29 +183,77 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
     loadData();
   };
 
+  const handleQuickApprove = async (item: ApprovalItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newHistory = [
+      ...(item.history || []),
+      {
+        date: new Date().toISOString(),
+        status: 'Aprovado' as ApprovalStatus,
+        user: 'Wesley Nunes',
+        feedback: 'Aprovado na Mesa Criativa'
+      }
+    ];
+
+    await phase2Service.saveApproval({
+      id: item.id,
+      status: 'Aprovado',
+      feedback: 'Aprovado',
+      history: newHistory
+    });
+
+    await dashboardService.logActivity(
+      'Peça Aprovada',
+      'approval',
+      item.id,
+      `Material "${item.title}" aprovado na Mesa Criativa por Wesley Nunes.`
+    );
+
+    showToast(`"${item.title}" aprovado com sucesso!`, 'success');
+    loadData();
+  };
+
+  const handleQuickRequestChanges = (item: ApprovalItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedApproval(item);
+    setActionStatus('Alterações solicitadas');
+    setActionFeedback('');
+    setIsActionModalOpen(true);
+  };
+
+  const getMaterialTypeIcon = (type: string) => {
+    const t = (type || '').toLowerCase();
+    if (t.includes('vídeo') || t.includes('video') || t.includes('reels')) return <Video size={13} />;
+    if (t.includes('arte') || t.includes('criativo') || t.includes('banner')) return <Image size={13} />;
+    if (t.includes('logo') || t.includes('identidade')) return <Palette size={13} />;
+    if (t.includes('site') || t.includes('landing') || t.includes('página')) return <Globe size={13} />;
+    if (t.includes('copy') || t.includes('legenda') || t.includes('roteiro')) return <MessageSquare size={13} />;
+    return <Sparkles size={13} />;
+  };
+
   const getStatusBadge = (status: ApprovalStatus) => {
     switch (status) {
       case 'Aprovado':
         return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#EAF5EE', color: '#1B6346', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#EAF5EE', color: '#1B6346', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650, fontFamily: 'var(--font-heading)' }}>
             <CheckCircle2 size={13} /> Aprovado
           </span>
         );
       case 'Alterações solicitadas':
         return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEF5E7', color: '#8F5310', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEF5E7', color: '#8F5310', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650, fontFamily: 'var(--font-heading)' }}>
             <Clock size={13} /> Alterações solicitadas
           </span>
         );
       case 'Rejeitado':
         return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEE2E2', color: '#B91C1C', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEE2E2', color: '#B91C1C', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650, fontFamily: 'var(--font-heading)' }}>
             <XCircle size={13} /> Rejeitado
           </span>
         );
       default:
         return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#EDF4F9', color: '#1D557B', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#EDF4F9', color: '#1D557B', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 650, fontFamily: 'var(--font-heading)' }}>
             <Clock size={13} /> Aguardando aprovação
           </span>
         );
@@ -220,16 +274,30 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
-            Aprovações
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'var(--sand-gold-dark)',
+                fontFamily: 'var(--font-heading)'
+              }}
+            >
+              Mesa de Revisão Criativa
+            </span>
+          </div>
+          <h1 className="font-heading" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+            Aprovações & Criação
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', margin: 0, fontWeight: 450 }}>
-            Fluxo de validação de criativos, roteiros, páginas e entregáveis com clientes.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', margin: '4px 0 0', fontWeight: 400 }}>
+            Central de revisão de peças, criativos, páginas, vídeos e aprovação ágil com clientes.
           </p>
         </div>
 
         <button className="btn btn-primary" onClick={handleOpenCreate} style={{ gap: '6px' }}>
-          <Plus size={16} /> Nova Solicitação
+          <Plus size={16} /> Nova Peça para Aprovação
         </button>
       </div>
 
@@ -261,75 +329,170 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
         </select>
       </div>
 
-      {/* Grid de Aprovações */}
+      {/* Grid de Aprovações - Mesa Criativa */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
-        {filteredApprovals.map((item) => (
-          <div
-            key={item.id}
-            className="card"
-            style={{
-              padding: '22px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '16px'
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--sand-gold-dark)' }}>
-                  {item.clientName}
-                </span>
-                {getStatusBadge(item.status)}
-              </div>
-
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--green-deep)', margin: '0 0 6px' }}>
-                {item.title}
-              </h3>
-
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '10px' }}>
-                {item.projectName && <div>Projeto: {item.projectName}</div>}
-                <div>Tipo: {item.type} • Responsável: {item.responsible}</div>
-              </div>
-
-              {item.notes && (
-                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: '0 0 12px' }}>
-                  {item.notes}
-                </p>
-              )}
-
-              {item.feedback && (
-                <div style={{ padding: '10px 12px', background: 'var(--cream-subtle)', borderRadius: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderLeft: '3px solid var(--sand-gold-dark)' }}>
-                  <strong>Último Feedback:</strong> {item.feedback}
-                </div>
-              )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--cream-border-subtle)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {filteredApprovals.map((item) => {
+          const versionNumber = (item.history?.length || 0) + 1;
+          return (
+            <div
+              key={item.id}
+              className="card"
+              style={{
+                padding: '22px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '16px',
+                borderLeft: item.status === 'Aguardando aprovação' ? '3px solid var(--sand-gold)' : undefined
+              }}
+            >
               <div>
-                {item.externalLink && (
-                  <a
-                    href={item.externalLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.78rem', gap: '4px' }}
+                {/* Top Bar: Cliente, Projeto, Versão, Status */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span
+                      style={{
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        color: 'var(--sand-gold-dark)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                        fontFamily: 'var(--font-heading)'
+                      }}
+                    >
+                      {item.clientName}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--cream-subtle)',
+                        color: 'var(--text-muted)',
+                        fontFamily: 'var(--font-heading)'
+                      }}
+                    >
+                      v{versionNumber}
+                    </span>
+                  </div>
+                  {getStatusBadge(item.status)}
+                </div>
+
+                {/* Título da Peça */}
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--green-deep)', margin: '0 0 8px', lineHeight: 1.3, fontFamily: 'var(--font-heading)' }}>
+                  {item.title}
+                </h3>
+
+                {/* Metadados: Tipo com Ícone, Projeto, Responsável */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--cream-subtle)',
+                      border: '1px solid var(--cream-border)',
+                      fontSize: '0.74rem',
+                      fontWeight: 650,
+                      color: 'var(--green-deep)',
+                      fontFamily: 'var(--font-heading)'
+                    }}
                   >
-                    <ExternalLink size={12} /> Acessar Link
-                  </a>
+                    {getMaterialTypeIcon(item.type)}
+                    {item.type}
+                  </span>
+                  {item.projectName && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                      • {item.projectName}
+                    </span>
+                  )}
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                    • Resp: {item.responsible}
+                  </span>
+                </div>
+
+                {item.notes && (
+                  <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.45, margin: '0 0 12px' }}>
+                    {item.notes}
+                  </p>
+                )}
+
+                {item.feedback && (
+                  <div style={{ padding: '10px 12px', background: 'var(--cream-subtle)', borderRadius: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderLeft: '3px solid var(--sand-gold)' }}>
+                    <strong style={{ fontFamily: 'var(--font-heading)', color: 'var(--green-deep)' }}>Feedback:</strong> {item.feedback}
+                  </div>
                 )}
               </div>
 
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => handleOpenAction(item)}
-                style={{ fontSize: '0.78rem' }}
-              >
-                Gerenciar Status
-              </button>
+              {/* Ações Criativas Diretas */}
+              <div style={{ borderTop: '1px solid var(--cream-border-subtle)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {item.externalLink && (
+                    <a
+                      href={item.externalLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.76rem', gap: '4px' }}
+                    >
+                      <ExternalLink size={12} /> Ver Link
+                    </a>
+                  )}
+                  <button
+                    className="sidebar-collapse-btn"
+                    onClick={() => handleOpenAction(item)}
+                    title="Ver Histórico & Detalhes"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <History size={14} />
+                  </button>
+                </div>
+
+                {/* Ações Rápidas: Aprovar e Solicitar Ajustes */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    onClick={(e) => handleQuickRequestChanges(item, e)}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: '#FEF5E7',
+                      color: '#8F5310',
+                      border: '1px solid #FCDCA6',
+                      fontSize: '0.76rem',
+                      fontWeight: 650,
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-heading)'
+                    }}
+                  >
+                    Solicitar Ajustes
+                  </button>
+                  <button
+                    onClick={(e) => handleQuickApprove(item, e)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--green-primary)',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: '0.76rem',
+                      fontWeight: 650,
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-heading)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Check size={12} /> Aprovar
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {filteredApprovals.length === 0 && (
           <div className="card" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center' }}>

@@ -16,6 +16,7 @@ import {
   BarChart3,
   UserCheck,
   Sparkles,
+  Palette,
   Settings,
   User,
   LogOut,
@@ -102,20 +103,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      title: 'Gestão',
+      title: 'Criação',
       items: [
-        { id: 'processes', label: 'Processos', icon: GitMerge },
-        { id: 'templates', label: 'Templates', icon: Layers },
-        { id: 'materials', label: 'Materiais', icon: FolderOpen },
-        { id: 'reports', label: 'Relatórios', icon: BarChart3 },
-        { id: 'team', label: 'Equipe', icon: UserCheck }
+        { id: 'content', label: 'Conteúdo', icon: Sparkles },
+        { id: 'materials', label: 'Materiais', icon: FolderOpen }
       ]
     },
     {
-      title: 'Marca',
+      title: 'Performance',
       items: [
-        { id: 'content', label: 'Conteúdo', icon: Sparkles },
-        { id: 'brand-center', label: 'Brand Center', icon: Sparkles }
+        { id: 'reports', label: 'Relatórios', icon: BarChart3 }
+      ]
+    },
+    {
+      title: 'Gestão & Marca',
+      items: [
+        { id: 'processes', label: 'Processos', icon: GitMerge },
+        { id: 'templates', label: 'Templates', icon: Layers },
+        { id: 'team', label: 'Equipe', icon: UserCheck },
+        { id: 'brand-center', label: 'Brand Center', icon: Palette }
       ]
     }
   ];
@@ -139,13 +145,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isMobileOpen ? 'mobile-open' : ''
         }`}
       >
-        {/* Top Header - ONLY official Alicerce Logo */}
+        {/* Top Header - Official Alicerce Logo & Agency Concept */}
         <div className="sidebar-header">
           <div
             className="sidebar-logo-container"
             onClick={() => handleNavClick('dashboard')}
-            style={{ cursor: 'pointer' }}
-            title="Alicerce OS"
+            style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+            title="Alicerce OS — Creative & Business Operations"
           >
             {isCollapsed ? (
               <img
@@ -154,11 +160,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="sidebar-logo-icon"
               />
             ) : (
-              <img
-                src="/logo.png"
-                alt="Alicerce"
-                className="sidebar-logo-full"
-              />
+              <>
+                <img
+                  src="/logo.png"
+                  alt="Alicerce"
+                  className="sidebar-logo-full"
+                />
+                <span
+                  style={{
+                    fontSize: '0.62rem',
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--sand-gold-light)',
+                    fontWeight: 600,
+                    marginTop: '4px',
+                    fontFamily: 'var(--font-heading)',
+                    opacity: 0.9
+                  }}
+                >
+                  Creative & Operations
+                </span>
+              </>
             )}
           </div>
 

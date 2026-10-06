@@ -21,14 +21,21 @@ import { useToast } from '../../components/Common/Toast';
 
 const CATEGORIES: ('Todas' | MaterialCategory)[] = [
   'Todas',
-  'Comercial',
-  'Onboarding',
+  'Identidade Visual',
+  'Logos',
+  'Criativos',
+  'Vídeos',
+  'Apresentações',
   'Contratos',
   'Briefings',
+  'Propostas',
+  'Referências',
+  'Mockups',
+  'Templates',
+  'Comercial',
+  'Onboarding',
   'Checklists',
   'Relatórios',
-  'Apresentações',
-  'Templates',
   'Documentos internos'
 ];
 
@@ -215,11 +222,25 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
         }}
       >
         <div>
-          <h1 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)' }}>
-            Materiais
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'var(--sand-gold-dark)',
+                fontFamily: 'var(--font-heading)'
+              }}
+            >
+              Acervo de Ativos
+            </span>
+          </div>
+          <h1 className="font-heading" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+            Biblioteca Criativa & Materiais
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.02rem', fontWeight: 450 }}>
-            Biblioteca de apresentações, contratos, templates e diretrizes.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.98rem', fontWeight: 400, marginTop: '4px' }}>
+            Identidades, criativos, apresentações, propostas, mockups e templates da agência.
           </p>
         </div>
 

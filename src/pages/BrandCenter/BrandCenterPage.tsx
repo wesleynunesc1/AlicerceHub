@@ -420,16 +420,16 @@ export const BrandCenterPage: React.FC = () => {
             gap: '28px'
           }}
         >
-          {/* Serif Card */}
+          {/* Montserrat Card */}
           <div className="card" style={{ padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <span className="badge badge-service">Institucional & Títulos</span>
+              <span className="badge badge-service">Títulos, Força & Estrutura</span>
             </div>
-            <h3 className="font-serif" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', marginBottom: '8px' }}>
-              Cormorant Garamond
+            <h3 className="font-heading" style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--green-deep)', marginBottom: '8px' }}>
+              Montserrat
             </h3>
-            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: '22px', fontWeight: 450 }}>
-              Serif clássica, refinada e imponente. Usada em títulos nobres, citações, manifestos e capas editoriais.
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: '22px', fontWeight: 400 }}>
+              Geométrica, imponente e estruturada. Pesos oficiais: 500, 600 e 700. Usada em títulos de página, seções, botões, sidebar, badges e números de KPI.
             </p>
 
             <div
@@ -443,25 +443,25 @@ export const BrandCenterPage: React.FC = () => {
                 borderLeft: '3px solid var(--sand-gold)'
               }}
             >
-              <div className="font-serif" style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1.25 }}>
+              <div className="font-heading" style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--green-deep)', lineHeight: 1.25 }}>
                 "Estrutura precede o crescimento."
               </div>
-              <div className="font-serif" style={{ fontSize: '1.25rem', fontStyle: 'italic', color: 'var(--sand-gold-dark)', fontWeight: 600 }}>
+              <div className="font-heading" style={{ fontSize: '1rem', color: 'var(--sand-gold-dark)', fontWeight: 600 }}>
                 Estratégia sólida para marcas que visam o topo do mercado.
               </div>
             </div>
           </div>
 
-          {/* Sans-serif Card */}
+          {/* Poppins Card */}
           <div className="card" style={{ padding: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <span className="badge badge-service">Interface & Operação</span>
+              <span className="badge badge-service">Leitura, Formulários & Suavidade</span>
             </div>
-            <h3 className="font-sans" style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--green-deep)', marginBottom: '8px' }}>
-              Plus Jakarta Sans
+            <h3 className="font-body" style={{ fontSize: '2.1rem', fontWeight: 600, color: 'var(--green-deep)', marginBottom: '8px' }}>
+              Poppins
             </h3>
-            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: '22px', fontWeight: 450 }}>
-              Sans-serif moderna de alta legibilidade, pesos 400-800 e precisão cirúrgica em todas as resoluções.
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: '22px', fontWeight: 400 }}>
+              Sans-serif geométrica com toque humano e alta legibilidade. Pesos oficiais: 400, 500 e 600. Usada em textos corridos, descrições, inputs e cards.
             </p>
 
             <div
@@ -475,11 +475,11 @@ export const BrandCenterPage: React.FC = () => {
                 borderLeft: '3px solid var(--green-primary)'
               }}
             >
-              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <div className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 Dashboards, Tabelas, Métricas e Formulários
               </div>
-              <div style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6, fontWeight: 450 }}>
-                Desenvolvida para proporcionar leitura fluida, rápida absorção de dados operacionais e conforto visual em sessões prolongadas.
+              <div className="font-body" style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6, fontWeight: 400 }}>
+                Desenvolvida para proporcionar leitura fluida, rápida absorção de dados operacionais e extremo conforto visual em sessões prolongadas.
               </div>
             </div>
           </div>

@@ -413,14 +413,21 @@ export interface SOPProcess {
 }
 
 export type MaterialCategory =
-  | 'Comercial'
-  | 'Onboarding'
+  | 'Identidade Visual'
+  | 'Logos'
+  | 'Criativos'
+  | 'Vídeos'
+  | 'Apresentações'
   | 'Contratos'
   | 'Briefings'
+  | 'Propostas'
+  | 'Referências'
+  | 'Mockups'
+  | 'Templates'
+  | 'Comercial'
+  | 'Onboarding'
   | 'Checklists'
   | 'Relatórios'
-  | 'Apresentações'
-  | 'Templates'
   | 'Documentos internos';
 
 export interface Material {
