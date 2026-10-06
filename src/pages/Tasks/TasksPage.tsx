@@ -19,13 +19,16 @@ import {
   RotateCcw,
   Edit2,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { Task, TaskPriority, TaskStatus, Project, Client } from '../../types';
 import { phase2Service } from '../../services/phase2';
 import { projectsService } from '../../services/projects';
 import { clientsService } from '../../services/clients';
 import { dashboardService } from '../../services/dashboard';
+import { parseTaskCommand, ParsedTaskDraft } from '../../services/taskCommandParser';
 import { Modal } from '../../components/Common/Modal';
 import { useToast } from '../../components/Common/Toast';
 
@@ -62,10 +65,21 @@ export const TasksPage: React.FC<TasksPageProps> = ({
   });
   const [priorityFilter, setPriorityFilter] = useState<'Todas' | TaskPriority>('Todas');
 
-  // Modais
+  // Modais e modo de criação (Manual ou Criar por comando)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
+
+  // Estados do modo Criar por comando
+  const [creationMode, setCreationMode] = useState<'manual' | 'prompt'>('manual');
+  const [promptStep, setPromptStep] = useState<'input' | 'preview' | 'success'>('input');
+  const [commandText, setCommandText] = useState('');
+  const [isInterpreting, setIsInterpreting] = useState(false);
+  const [interpretError, setInterpretError] = useState<string | null>(null);
+  const [parsedDrafts, setParsedDrafts] = useState<ParsedTaskDraft[]>([]);
+  const [isSavingDrafts, setIsSavingDrafts] = useState(false);
+  const [createdCount, setCreatedCount] = useState(0);
+  const [newChecklistInputs, setNewChecklistInputs] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
     title: '',
@@ -109,6 +123,12 @@ export const TasksPage: React.FC<TasksPageProps> = ({
 
   const handleOpenCreate = () => {
     setEditingTask(null);
+    setCreationMode('manual');
+    setPromptStep('input');
+    setCommandText('');
+    setInterpretError(null);
+    setParsedDrafts([]);
+    setCreatedCount(0);
     setFormData({
       title: '',
       description: '',
@@ -124,6 +144,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
 
   const handleOpenEdit = (task: Task) => {
     setEditingTask(task);
+    setCreationMode('manual');
     setFormData({
       title: task.title,
       description: task.description || '',
@@ -135,6 +156,165 @@ export const TasksPage: React.FC<TasksPageProps> = ({
       dueDate: task.dueDate
     });
     setIsModalOpen(true);
+  };
+
+  // Interpretador de comandos em linguagem natural
+  const handleInterpretCommand = async () => {
+    if (!commandText.trim()) {
+      setInterpretError('Por favor, digite ou cole a descrição das tarefas.');
+      return;
+    }
+    setInterpretError(null);
+    setIsInterpreting(true);
+
+    try {
+      const results = await parseTaskCommand(commandText, {
+        clients,
+        projects,
+        existingTasks: tasks,
+        currentUser: formData.responsible || 'Wesley Nunes'
+      });
+
+      if (!results || results.length === 0) {
+        setInterpretError('Não conseguimos identificar tarefas nesse texto. Revise as informações e tente novamente.');
+        setIsInterpreting(false);
+        return;
+      }
+
+      setParsedDrafts(results);
+      setPromptStep('preview');
+    } catch (err) {
+      console.error('Erro na interpretação:', err);
+      setInterpretError('Não conseguimos identificar tarefas nesse texto. Revise as informações e tente novamente.');
+    } finally {
+      setIsInterpreting(false);
+    }
+  };
+
+  // Salvar rascunhos interpretados em lote no Supabase
+  const handleSaveAllDrafts = async () => {
+    if (parsedDrafts.length === 0) return;
+
+    const hasEmptyTitle = parsedDrafts.some((d) => !d.title.trim());
+    if (hasEmptyTitle) {
+      showToast('Todas as tarefas precisam ter um título preenchido.', 'error');
+      return;
+    }
+
+    setIsSavingDrafts(true);
+    try {
+      const createdTasks: Task[] = [];
+
+      for (const draft of parsedDrafts) {
+        const selectedProj = projects.find((p) => p.id === draft.projectId);
+        const selectedClient = clients.find((c) => c.id === draft.clientId);
+
+        let finalDescription = draft.description.trim();
+        if (draft.checklist && draft.checklist.length > 0) {
+          const checklistText = draft.checklist.map((c) => `• ${c}`).join('\n');
+          finalDescription = finalDescription
+            ? `Checklist:\n${checklistText}\n\nObservações:\n${finalDescription}`
+            : `Checklist:\n${checklistText}`;
+        }
+
+        const saved = await phase2Service.saveTask({
+          title: draft.title.trim(),
+          description: finalDescription,
+          projectId: draft.projectId || undefined,
+          projectName: selectedProj?.name || draft.projectName,
+          clientId: draft.clientId || undefined,
+          clientName: selectedClient?.companyName || draft.clientName,
+          responsible: draft.responsible || 'Wesley Nunes',
+          priority: draft.priority,
+          status: 'Pendente',
+          dueDate: draft.dueDate
+        });
+        createdTasks.push(saved);
+      }
+
+      // Registro de histórico conforme especificação
+      if (createdTasks.length === 1) {
+        await dashboardService.logActivity(
+          'Tarefa criada via comando',
+          'task',
+          createdTasks[0].id,
+          `Tarefa "${createdTasks[0].title}" atribuída para ${createdTasks[0].responsible} (Prazo: ${new Date(createdTasks[0].dueDate).toLocaleDateString('pt-BR')}).`
+        );
+      } else {
+        await dashboardService.logActivity(
+          `${createdTasks.length} tarefas criadas via comando`,
+          'task',
+          createdTasks[0].id,
+          `${createdTasks.length} tarefas criadas e organizadas em lote a partir de comando natural.`
+        );
+      }
+
+      setCreatedCount(createdTasks.length);
+      showToast(
+        createdTasks.length === 1
+          ? 'Tarefa criada com sucesso.'
+          : `${createdTasks.length} tarefas criadas com sucesso.`,
+        'success'
+      );
+      await loadData();
+      setPromptStep('success');
+    } catch (err) {
+      console.error('Erro ao salvar tarefas em lote:', err);
+      showToast('Erro ao criar tarefas. Tente novamente.', 'error');
+    } finally {
+      setIsSavingDrafts(false);
+    }
+  };
+
+  const handleUpdateDraft = (index: number, updates: Partial<ParsedTaskDraft>) => {
+    setParsedDrafts((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...updates };
+      if ('clientId' in updates) {
+        const foundClient = clients.find((c) => c.id === updates.clientId);
+        copy[index].clientName = foundClient?.companyName;
+        copy[index].clientNotFound = false;
+      }
+      return copy;
+    });
+  };
+
+  const handleRemoveDraft = (index: number) => {
+    setParsedDrafts((prev) => {
+      const filtered = prev.filter((_, i) => i !== index);
+      if (filtered.length === 0) {
+        setPromptStep('input');
+      }
+      return filtered;
+    });
+  };
+
+  const handleAddDraftChecklistItem = (draftIndex: number) => {
+    const tempId = parsedDrafts[draftIndex].tempId;
+    const itemText = (newChecklistInputs[tempId] || '').trim();
+    if (!itemText) return;
+
+    setParsedDrafts((prev) => {
+      const copy = [...prev];
+      copy[draftIndex] = {
+        ...copy[draftIndex],
+        checklist: [...copy[draftIndex].checklist, itemText]
+      };
+      return copy;
+    });
+
+    setNewChecklistInputs((prev) => ({ ...prev, [tempId]: '' }));
+  };
+
+  const handleRemoveDraftChecklistItem = (draftIndex: number, itemIndex: number) => {
+    setParsedDrafts((prev) => {
+      const copy = [...prev];
+      copy[draftIndex] = {
+        ...copy[draftIndex],
+        checklist: copy[draftIndex].checklist.filter((_, i) => i !== itemIndex)
+      };
+      return copy;
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -699,110 +879,749 @@ export const TasksPage: React.FC<TasksPageProps> = ({
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}
-        subtitle="Defina o responsável, prioridade e prazo"
-        maxWidth="640px"
+        title={editingTask ? 'Editar Tarefa' : creationMode === 'prompt' ? 'Criar por comando' : 'Nova Tarefa'}
+        subtitle={
+          editingTask
+            ? 'Defina o responsável, prioridade e prazo'
+            : creationMode === 'prompt'
+            ? promptStep === 'preview'
+              ? `Revise e edite as ${parsedDrafts.length} ${parsedDrafts.length === 1 ? 'tarefa identificada' : 'tarefas identificadas'} antes de salvar`
+              : promptStep === 'success'
+              ? 'Tarefas sincronizadas com sucesso'
+              : 'Descreva as tarefas em linguagem natural e o Alicerce OS organiza tudo'
+            : 'Defina o responsável, prioridade e prazo'
+        }
+        maxWidth={creationMode === 'prompt' && promptStep === 'preview' ? '780px' : '640px'}
       >
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label className="form-label">Título da Tarefa *</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Ex: Subir campanha de remarketing no Meta Ads"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              required
-            />
+        {/* Seletor discreto de modo no topo (somente na criação de nova tarefa) */}
+        {!editingTask && promptStep !== 'success' && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px',
+              background: 'var(--cream-subtle)',
+              borderRadius: '8px',
+              border: '1px solid var(--cream-border)',
+              marginBottom: '18px',
+              width: 'fit-content'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setCreationMode('manual');
+                setInterpretError(null);
+              }}
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.85rem',
+                fontWeight: creationMode === 'manual' ? 650 : 500,
+                borderRadius: '6px',
+                border: 'none',
+                background: creationMode === 'manual' ? 'var(--cream-card)' : 'transparent',
+                color: creationMode === 'manual' ? 'var(--green-deep)' : 'var(--text-muted)',
+                boxShadow: creationMode === 'manual' ? 'var(--shadow-sm)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              Manual
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreationMode('prompt');
+                setInterpretError(null);
+              }}
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.85rem',
+                fontWeight: creationMode === 'prompt' ? 650 : 500,
+                borderRadius: '6px',
+                border: 'none',
+                background: creationMode === 'prompt' ? 'var(--cream-card)' : 'transparent',
+                color: creationMode === 'prompt' ? 'var(--green-deep)' : 'var(--text-muted)',
+                boxShadow: creationMode === 'prompt' ? 'var(--shadow-sm)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              Criar por comando
+            </button>
           </div>
+        )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        {/* MODO MANUAL (ou edição de tarefa existente) */}
+        {(editingTask || creationMode === 'manual') && (
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
-              <label className="form-label">Cliente</label>
-              <select
-                className="form-select"
-                value={formData.clientId}
-                onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-              >
-                <option value="">Nenhum cliente vinculado</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">Projeto</label>
-              <select
-                className="form-select"
-                value={formData.projectId}
-                onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-              >
-                <option value="">Nenhum projeto vinculado</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.clientName})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
-            <div>
-              <label className="form-label">Responsável</label>
+              <label className="form-label">Título da Tarefa *</label>
               <input
                 type="text"
                 className="form-input"
-                value={formData.responsible}
-                onChange={(e) => setFormData({ ...formData, responsible: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="form-label">Prioridade</label>
-              <select
-                className="form-select"
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskPriority })}
-              >
-                <option value="Baixa">Baixa</option>
-                <option value="Média">Média</option>
-                <option value="Alta">Alta</option>
-                <option value="Urgente">Urgente</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">Prazo de Entrega *</label>
-              <input
-                type="date"
-                className="form-input"
-                value={formData.dueDate}
-                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                placeholder="Ex: Subir campanha de remarketing no Meta Ads"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
               />
             </div>
-          </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+              <div>
+                <label className="form-label">Cliente</label>
+                <select
+                  className="form-select"
+                  value={formData.clientId}
+                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                >
+                  <option value="">Nenhum cliente vinculado</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.companyName}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Projeto</label>
+                <select
+                  className="form-select"
+                  value={formData.projectId}
+                  onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                >
+                  <option value="">Nenhum projeto vinculado</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.clientName})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
+              <div>
+                <label className="form-label">Responsável</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formData.responsible}
+                  onChange={(e) => setFormData({ ...formData, responsible: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Prioridade</label>
+                <select
+                  className="form-select"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskPriority })}
+                >
+                  <option value="Baixa">Baixa</option>
+                  <option value="Média">Média</option>
+                  <option value="Alta">Alta</option>
+                  <option value="Urgente">Urgente</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Prazo de Entrega *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="form-label">Descrição / Checklist</label>
+              <textarea
+                className="form-textarea"
+                rows={3}
+                placeholder="Instruções para execução da tarefa..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary">
+                {editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* MODO CRIAR POR COMANDO */}
+        {!editingTask && creationMode === 'prompt' && (
           <div>
-            <label className="form-label">Descrição / Checklist</label>
-            <textarea
-              className="form-textarea"
-              rows={3}
-              placeholder="Instruções para execução da tarefa..."
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-          </div>
+            {/* ETAPA 1: DIGITAÇÃO DO COMANDO */}
+            {promptStep === 'input' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <h4 style={{ fontSize: '1.05rem', fontWeight: 650, color: 'var(--green-deep)', margin: 0 }}>
+                    Descreva as tarefas
+                  </h4>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.45 }}>
+                    Escreva ou cole o que precisa ser feito. O Alicerce OS organiza as informações para você.
+                  </p>
+                </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-primary">
-              {editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
-            </button>
+                <div>
+                  <textarea
+                    className="form-textarea"
+                    value={commandText}
+                    onChange={(e) => {
+                      setCommandText(e.target.value);
+                      if (interpretError) setInterpretError(null);
+                    }}
+                    rows={5}
+                    placeholder="Ex.: Criar tarefa para concluir landing page da Sabrina, responsável Wesley, prioridade alta, prazo amanhã. Checklist: revisar versão mobile, corrigir hero, testar formulário e publicar."
+                    style={{
+                      width: '100%',
+                      minHeight: '150px',
+                      fontSize: '16px',
+                      lineHeight: 1.5,
+                      padding: '14px',
+                      borderRadius: '8px',
+                      resize: 'vertical',
+                      boxSizing: 'border-box'
+                    }}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Exemplos discretos */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Exemplos de comandos:
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {[
+                      'Hoje preciso concluir site do Pedro Fit e landing page da Sabrina',
+                      'Pablo: configurar campanha Meta Ads, subir campanha e criar 6 artes. Tudo prioridade alta até sexta.',
+                      'Amanhã fazer remarketing Bora Flix',
+                      'Concluir site. Revisar mobile, testar formulário, revisar links e publicar.'
+                    ].map((tip, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setCommandText(tip);
+                          if (interpretError) setInterpretError(null);
+                        }}
+                        style={{
+                          background: 'var(--cream-subtle)',
+                          border: '1px solid var(--cream-border)',
+                          borderRadius: '6px',
+                          padding: '5px 10px',
+                          fontSize: '0.78rem',
+                          color: 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background 0.15s'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--cream-border)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--cream-subtle)')}
+                      >
+                        &ldquo;{tip.length > 55 ? tip.slice(0, 55) + '...' : tip}&rdquo;
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {interpretError && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      background: 'rgba(220, 38, 38, 0.08)',
+                      border: '1px solid rgba(220, 38, 38, 0.25)',
+                      borderRadius: '8px',
+                      color: '#B91C1C',
+                      fontSize: '0.86rem'
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{interpretError}</span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsModalOpen(false)}
+                    disabled={isInterpreting}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleInterpretCommand}
+                    disabled={isInterpreting || !commandText.trim()}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    {isInterpreting ? (
+                      <>
+                        <span className="spinner-sm" />
+                        Organizando tarefas...
+                      </>
+                    ) : (
+                      'Interpretar tarefas'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ETAPA 2: PRÉ-VISUALIZAÇÃO E EDIÇÃO ANTES DE SALVAR */}
+            {promptStep === 'preview' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <h4 style={{ fontSize: '1.12rem', fontWeight: 650, color: 'var(--green-deep)', margin: 0 }}>
+                      Tarefas identificadas ({parsedDrafts.length})
+                    </h4>
+                    <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                      Revise e edite as informações antes de confirmar.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setParsedDrafts((prev) => [
+                        ...prev,
+                        {
+                          tempId: `draft-manual-${Date.now()}`,
+                          title: '',
+                          responsible: formData.responsible || 'Wesley Nunes',
+                          priority: 'Média',
+                          dueDate: new Date().toISOString().split('T')[0],
+                          description: '',
+                          checklist: []
+                        }
+                      ]);
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Plus size={14} /> Adicionar tarefa
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    maxHeight: '56vh',
+                    overflowY: 'auto',
+                    paddingRight: '4px'
+                  }}
+                >
+                  {parsedDrafts.map((draft, idx) => (
+                    <div
+                      key={draft.tempId || idx}
+                      style={{
+                        padding: '16px',
+                        border: '1px solid var(--cream-border)',
+                        borderRadius: '10px',
+                        background: 'var(--cream-card)',
+                        boxShadow: 'var(--shadow-sm)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}
+                    >
+                      {/* Topo do card: índice, alerta de duplicidade e exclusão */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              background: 'var(--cream-subtle)',
+                              color: 'var(--green-deep)'
+                            }}
+                          >
+                            Tarefa #{idx + 1}
+                          </span>
+
+                          {draft.isPossibleDuplicate && (
+                            <span
+                              style={{
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                background: 'var(--status-prog-bg)',
+                                color: 'var(--status-prog-text)',
+                                border: '1px solid var(--status-prog-border)'
+                              }}
+                              title={draft.duplicateReason}
+                            >
+                              ⚠️ Possível tarefa duplicada
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDraft(idx)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.8rem',
+                            padding: '4px 6px',
+                            borderRadius: '4px',
+                            transition: 'color 0.15s, background 0.15s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#DC2626';
+                            e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = 'var(--text-muted)';
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                          title="Remover esta tarefa da lista"
+                        >
+                          <Trash2 size={14} /> Remover
+                        </button>
+                      </div>
+
+                      {/* Título da Tarefa */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                          Título da Tarefa *
+                        </label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={draft.title}
+                          onChange={(e) => handleUpdateDraft(idx, { title: e.target.value })}
+                          placeholder="Título da tarefa..."
+                          required
+                        />
+                      </div>
+
+                      {/* Cliente e Projeto */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>
+                              Cliente
+                            </label>
+                            {draft.clientNotFound && draft.clientSearchTerm && (
+                              <span style={{ fontSize: '0.72rem', color: '#B45309', fontWeight: 600 }}>
+                                ⚠️ &ldquo;{draft.clientSearchTerm}&rdquo; não encontrado
+                              </span>
+                            )}
+                          </div>
+                          <select
+                            className="form-select"
+                            value={draft.clientId || ''}
+                            onChange={(e) => handleUpdateDraft(idx, { clientId: e.target.value || undefined })}
+                          >
+                            <option value="">Nenhum cliente vinculado</option>
+                            {clients.map((c) => (
+                              <option key={c.id} value={c.id}>{c.companyName}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                            Projeto
+                          </label>
+                          <select
+                            className="form-select"
+                            value={draft.projectId || ''}
+                            onChange={(e) => {
+                              const projId = e.target.value || undefined;
+                              const pName = projects.find((p) => p.id === projId)?.name;
+                              handleUpdateDraft(idx, { projectId: projId, projectName: pName });
+                            }}
+                          >
+                            <option value="">Nenhum projeto vinculado</option>
+                            {projects
+                              .filter((p) => !draft.clientId || p.clientId === draft.clientId)
+                              .map((p) => (
+                                <option key={p.id} value={p.id}>{p.name} ({p.clientName})</option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Responsável, Prioridade e Prazo */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+                        <div>
+                          <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                            Responsável
+                          </label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={draft.responsible}
+                            onChange={(e) => handleUpdateDraft(idx, { responsible: e.target.value })}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                            Prioridade
+                          </label>
+                          <select
+                            className="form-select"
+                            value={draft.priority}
+                            onChange={(e) => handleUpdateDraft(idx, { priority: e.target.value as TaskPriority })}
+                          >
+                            <option value="Baixa">Baixa</option>
+                            <option value="Média">Média</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Urgente">Urgente</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                            Prazo *
+                          </label>
+                          <input
+                            type="date"
+                            className="form-input"
+                            value={draft.dueDate}
+                            onChange={(e) => handleUpdateDraft(idx, { dueDate: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* Checklist */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '6px' }}>
+                          Checklist {draft.checklist.length > 0 && `(${draft.checklist.length})`}
+                        </label>
+                        {draft.checklist.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                            {draft.checklist.map((item, itemIdx) => (
+                              <div
+                                key={itemIdx}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '4px 8px',
+                                  background: 'var(--cream-subtle)',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>•</span>
+                                <input
+                                  type="text"
+                                  value={item}
+                                  onChange={(e) => {
+                                    const newItems = [...draft.checklist];
+                                    newItems[itemIdx] = e.target.value;
+                                    handleUpdateDraft(idx, { checklist: newItems });
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '0.84rem',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none'
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDraftChecklistItem(idx, itemIdx)}
+                                  style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    padding: '2px',
+                                    borderRadius: '4px'
+                                  }}
+                                  title="Remover item"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Input rápido para novo item no checklist */}
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input
+                            type="text"
+                            placeholder="+ Novo item para o checklist..."
+                            className="form-input"
+                            value={newChecklistInputs[draft.tempId] || ''}
+                            onChange={(e) =>
+                              setNewChecklistInputs({ ...newChecklistInputs, [draft.tempId]: e.target.value })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddDraftChecklistItem(idx);
+                              }
+                            }}
+                            style={{ fontSize: '0.84rem', padding: '6px 10px' }}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleAddDraftChecklistItem(idx)}
+                            disabled={!(newChecklistInputs[draft.tempId] || '').trim()}
+                          >
+                            Adicionar
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Descrição adicional */}
+                      <div>
+                        <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                          Descrição / Observações adicionais
+                        </label>
+                        <textarea
+                          className="form-textarea"
+                          rows={2}
+                          value={draft.description}
+                          onChange={(e) => handleUpdateDraft(idx, { description: e.target.value })}
+                          placeholder="Instruções ou notas complementares..."
+                          style={{ fontSize: '0.84rem', resize: 'vertical' }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Barra de ações inferior */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setPromptStep('input')}
+                    disabled={isSavingDrafts}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <ArrowLeft size={14} /> Voltar ao comando
+                  </button>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setIsModalOpen(false)}
+                      disabled={isSavingDrafts}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleSaveAllDrafts}
+                      disabled={isSavingDrafts || parsedDrafts.length === 0}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                      {isSavingDrafts ? (
+                        <>
+                          <span className="spinner-sm" />
+                          Criando tarefas...
+                        </>
+                      ) : parsedDrafts.length === 1 ? (
+                        'Criar tarefa'
+                      ) : (
+                        `Criar todas as tarefas (${parsedDrafts.length})`
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ETAPA 3: CONFIRMAÇÃO DE SUCESSO */}
+            {promptStep === 'success' && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  padding: '24px 12px 12px',
+                  gap: '16px'
+                }}
+              >
+                <div
+                  style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: 'var(--status-active-bg)',
+                    border: '1px solid var(--status-active-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--status-active-text)'
+                  }}
+                >
+                  <CheckCircle2 size={36} />
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--green-deep)', margin: 0 }}>
+                    {createdCount} {createdCount === 1 ? 'tarefa criada' : 'tarefas criadas'} com sucesso.
+                  </h4>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: '6px 0 0' }}>
+                    As tarefas já foram salvas e estão sincronizadas no Kanban, Lista e Agenda.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setCommandText('');
+                      setParsedDrafts([]);
+                      setPromptStep('input');
+                    }}
+                  >
+                    Criar mais
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Ver tarefas
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        </form>
+        )}
       </Modal>
     </div>
   );
