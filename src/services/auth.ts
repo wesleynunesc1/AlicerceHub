@@ -8,23 +8,36 @@ export interface AuthSessionState {
   loading: boolean;
 }
 
+export const OWNER_EMAIL = 'wesleynunespro@gmail.com';
+
+export const isOwnerEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  return email.trim().toLowerCase() === OWNER_EMAIL.toLowerCase();
+};
+
 const DEFAULT_PROFILE: UserProfile = {
-  id: 'usr_default',
+  id: 'usr_owner',
   name: 'Wesley Nunes',
-  email: 'wesley@alicerce.com',
-  role: 'Diretor de Operações',
+  email: OWNER_EMAIL,
+  role: 'Diretor Geral / Dono',
   roleType: 'Admin',
-  phone: '(11) 98765-4321',
+  phone: '',
 };
 
 export const authService = {
   /**
-   * Obtém a sessão atual do Supabase Auth
+   * Obtém a sessão atual do Supabase Auth validando se é o proprietário
    */
   async getSession() {
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
+      if (data.session?.user) {
+        if (!isOwnerEmail(data.session.user.email)) {
+          await supabase.auth.signOut();
+          return null;
+        }
+      }
       return data.session;
     } catch (err) {
       console.warn('Erro ao obter sessão do Supabase:', err);
@@ -33,25 +46,39 @@ export const authService = {
   },
 
   /**
-   * Realiza login com E-mail e Senha no Supabase Auth
+   * Realiza login com E-mail e Senha no Supabase Auth com validação de conta proprietária
    */
-  async signIn(email: string, password: string):Promise<{ success: boolean; error?: string; profile?: UserProfile }> {
+  async signIn(email: string, password: string): Promise<{ success: boolean; error?: string; profile?: UserProfile }> {
     try {
+      const cleanEmail = email.trim().toLowerCase();
+
+      // Somente a conta principal wesleynunespro@gmail.com é autorizada
+      if (!isOwnerEmail(cleanEmail)) {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: 'Esta conta não possui acesso ao Alicerce OS.'
+        };
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password,
       });
 
       if (error) {
-        // Se ainda não houver usuário no Supabase ou credenciais inválidas:
         return { success: false, error: error.message };
       }
 
-      if (!data.user) {
-        return { success: false, error: 'Usuário não encontrado.' };
+      if (!data.user || !isOwnerEmail(data.user.email)) {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: 'Esta conta não possui acesso ao Alicerce OS.'
+        };
       }
 
-      const profile = await this.getProfile(data.user.id, data.user.email || email);
+      const profile = await this.getProfile(data.user.id, data.user.email || cleanEmail);
       return { success: true, profile };
     } catch (err: any) {
       return { success: false, error: err.message || 'Falha na autenticação.' };
@@ -59,62 +86,13 @@ export const authService = {
   },
 
   /**
-   * Realiza cadastro de novo usuário no Supabase Auth
+   * Cadastro desabilitado na versão privada do Alicerce OS
    */
-  async signUp(nome: string, email: string, password: string): Promise<{ success: boolean; error?: string; user?: any; session?: any; profile?: UserProfile }> {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nome,
-            name: nome,
-            cargo: 'Estrategista Alicerce',
-            role: 'team'
-          }
-        }
-      });
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      if (!data.user) {
-        return { success: false, error: 'Não foi possível criar o usuário no Supabase Auth.' };
-      }
-
-      // Garante inserção direta na tabela profiles caso a trigger esteja pendente
-      try {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          nome,
-          email,
-          cargo: 'Estrategista Alicerce',
-          role: 'team'
-        }, { onConflict: 'id' });
-      } catch {
-        // trigger on_auth_user_created trata
-      }
-
-      const profile: UserProfile = {
-        id: data.user.id,
-        name: nome,
-        email,
-        role: 'Estrategista Alicerce',
-        roleType: 'Equipe',
-        phone: ''
-      };
-
-      return {
-        success: true,
-        user: data.user,
-        session: data.session,
-        profile
-      };
-    } catch (err: any) {
-      return { success: false, error: err?.message || 'Falha no cadastro.' };
-    }
+  async signUp(_nome: string, _email: string, _password: string): Promise<{ success: boolean; error?: string; user?: any; session?: any; profile?: UserProfile }> {
+    return {
+      success: false,
+      error: 'O cadastro de novas contas está desabilitado. O Alicerce OS é de uso exclusivo do proprietário.'
+    };
   },
 
   /**
@@ -140,12 +118,11 @@ export const authService = {
         .single();
 
       if (error || !data) {
-        // Fallback construído a partir do usuário do auth
         return {
           id: userId,
-          name: email.split('@')[0].replace('.', ' '),
-          email,
-          role: 'Estrategista',
+          name: 'Wesley Nunes',
+          email: OWNER_EMAIL,
+          role: 'Diretor Geral / Dono',
           roleType: 'Admin',
           phone: '',
         };
@@ -154,10 +131,10 @@ export const authService = {
       const p = data as DbProfile;
       return {
         id: p.id,
-        name: p.nome,
-        email: p.email,
-        role: p.cargo || 'Estrategista',
-        roleType: p.role === 'admin' ? 'Admin' : 'Equipe',
+        name: p.nome || 'Wesley Nunes',
+        email: p.email || OWNER_EMAIL,
+        role: p.cargo || 'Diretor Geral / Dono',
+        roleType: 'Admin',
         avatarUrl: p.avatar_url || undefined,
         phone: '',
       };
@@ -166,7 +143,7 @@ export const authService = {
       return {
         ...DEFAULT_PROFILE,
         id: userId,
-        email,
+        email: OWNER_EMAIL,
       };
     }
   },
@@ -198,6 +175,11 @@ export const authService = {
   onAuthStateChange(callback: (session: any, profile: UserProfile | null) => void) {
     return supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
+        if (!isOwnerEmail(session.user.email)) {
+          await supabase.auth.signOut();
+          callback(null, null);
+          return;
+        }
         const profile = await this.getProfile(session.user.id, session.user.email || '');
         callback(session, profile);
       } else {

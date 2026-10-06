@@ -129,14 +129,19 @@ export const LeadsPage: React.FC<LeadsPageProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.company.trim()) {
-      showToast('Nome e empresa são obrigatórios.', 'error');
+    if (!formData.name.trim() && !formData.company.trim()) {
+      showToast('Informe o nome do contato ou da empresa.', 'error');
       return;
     }
 
+    const resolvedName = formData.name.trim() || formData.company.trim();
+    const resolvedCompany = formData.company.trim() || formData.name.trim();
+
     const saved = await phase2Service.saveLead({
       ...(editingLead ? { id: editingLead.id } : {}),
-      ...formData
+      ...formData,
+      name: resolvedName,
+      company: resolvedCompany
     });
 
     await dashboardService.logActivity(
@@ -848,14 +853,13 @@ export const LeadsPage: React.FC<LeadsPageProps> = ({
             </div>
 
             <div>
-              <label className="form-label">Nome da Empresa *</label>
+              <label className="form-label">Nome da Empresa (Opcional)</label>
               <input
                 type="text"
                 className="form-input"
                 placeholder="Ex: Mendes Arquitetura"
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                required
               />
             </div>
           </div>

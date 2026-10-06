@@ -401,13 +401,12 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
             </div>
 
             <div>
-              <label className="form-label">Valor (R$) *</label>
+              <label className="form-label">Valor (R$)</label>
               <input
                 type="number"
                 className="form-input"
                 value={formData.value}
                 onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
-                required
               />
             </div>
           </div>
@@ -445,24 +444,22 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label className="form-label">Data de Início *</label>
+              <label className="form-label">Data de Início (Opcional)</label>
               <input
                 type="date"
                 className="form-input"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                required
               />
             </div>
 
             <div>
-              <label className="form-label">Data de Término *</label>
+              <label className="form-label">Data de Término (Opcional)</label>
               <input
                 type="date"
                 className="form-input"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                required
               />
             </div>
           </div>

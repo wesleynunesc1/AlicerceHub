@@ -597,13 +597,12 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               />
             </div>
             <div>
-              <label className="form-label">Horário *</label>
+              <label className="form-label">Horário (Opcional)</label>
               <input
                 type="time"
                 className="form-input"
                 value={formData.time}
                 onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                required
               />
             </div>
           </div>

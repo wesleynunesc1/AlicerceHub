@@ -143,8 +143,8 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
 
   const handleSaveProcess = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.description) {
-      showToast('Preencha os campos obrigatórios.', 'error');
+    if (!formData.title.trim()) {
+      showToast('O título do processo é obrigatório.', 'error');
       return;
     }
 
@@ -788,14 +788,13 @@ export const ProcessesPage: React.FC<ProcessesPageProps> = ({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Descrição Geral</label>
+            <label className="form-label">Descrição Geral (Opcional)</label>
             <textarea
               className="form-textarea"
               rows={3}
               placeholder="Explique o propósito deste SOP e como ele se encaixa na entrega da Alicerce..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              required
             />
           </div>
 

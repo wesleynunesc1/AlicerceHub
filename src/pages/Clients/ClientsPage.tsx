@@ -155,24 +155,24 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
 
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.companyName || !formData.contactName || !formData.email) {
-      showToast('Preencha os campos obrigatórios.', 'error');
+    if (!formData.companyName.trim()) {
+      showToast('O nome da empresa ou cliente é obrigatório.', 'error');
       return;
     }
 
     const payload = {
-      companyName: formData.companyName,
-      contactName: formData.contactName,
-      email: formData.email,
-      phone: formData.phone,
-      website: formData.website,
-      instagram: formData.instagram,
+      companyName: formData.companyName.trim(),
+      contactName: formData.contactName.trim() || formData.companyName.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone || '',
+      website: formData.website || '',
+      instagram: formData.instagram || '',
       segment: formData.segment || 'Geral',
       services: formData.services.length > 0 ? formData.services : (['Meta Ads'] as ServiceType[]),
-      startDate: formData.startDate,
-      accountManager: formData.accountManager,
-      notes: formData.notes,
-      status: formData.status,
+      startDate: formData.startDate || new Date().toISOString().split('T')[0],
+      accountManager: formData.accountManager || 'Wesley Nunes',
+      notes: formData.notes || '',
+      status: formData.status || 'Ativo',
     };
 
     if (editingClient) {
@@ -719,28 +719,26 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Nome do Responsável *</label>
+                <label className="form-label">Nome do Responsável (Opcional)</label>
                 <input
                   type="text"
                   className="form-input"
                   placeholder="Ex: Dr. Ricardo Silveira"
                   value={formData.contactName}
                   onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                  required
                 />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">E-mail Corporativo *</label>
+                <label className="form-label">E-mail Corporativo (Opcional)</label>
                 <input
                   type="email"
                   className="form-input"
                   placeholder="contato@empresa.com.br"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
                 />
               </div>
 

@@ -117,8 +117,8 @@ export const FinancialPage: React.FC<FinancialPageProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.clientId) {
-      showToast('Selecione o cliente pagador.', 'error');
+    if (!formData.description.trim()) {
+      showToast('A descrição do lançamento é obrigatória.', 'error');
       return;
     }
 
@@ -126,12 +126,12 @@ export const FinancialPage: React.FC<FinancialPageProps> = ({
 
     const saved = await phase2Service.saveFinancialEntry({
       ...(editingEntry ? { id: editingEntry.id } : {}),
-      clientId: formData.clientId,
-      clientName: selectedCl?.companyName || 'Cliente',
+      clientId: formData.clientId || undefined,
+      clientName: selectedCl?.companyName || 'Avulso / Geral',
       contractId: formData.contractId || undefined,
-      description: formData.description,
-      value: Number(formData.value),
-      dueDate: formData.dueDate,
+      description: formData.description.trim(),
+      value: Number(formData.value) || 0,
+      dueDate: formData.dueDate || todayStr,
       paymentDate: formData.status === 'Pago' && !formData.paymentDate ? todayStr : formData.paymentDate || undefined,
       status: formData.status
     });
@@ -382,14 +382,13 @@ export const FinancialPage: React.FC<FinancialPageProps> = ({
       >
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label className="form-label">Cliente *</label>
+            <label className="form-label">Cliente (Opcional)</label>
             <select
               className="form-select"
               value={formData.clientId}
               onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-              required
             >
-              <option value="">Selecione o cliente...</option>
+              <option value="">Nenhum (Lançamento Geral / Avulso)</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>{c.companyName}</option>
               ))}
@@ -410,24 +409,22 @@ export const FinancialPage: React.FC<FinancialPageProps> = ({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label className="form-label">Valor (R$) *</label>
+              <label className="form-label">Valor (R$)</label>
               <input
                 type="number"
                 className="form-input"
                 value={formData.value}
                 onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
-                required
               />
             </div>
 
             <div>
-              <label className="form-label">Data de Vencimento *</label>
+              <label className="form-label">Data de Vencimento (Opcional)</label>
               <input
                 type="date"
                 className="form-input"
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                required
               />
             </div>
           </div>

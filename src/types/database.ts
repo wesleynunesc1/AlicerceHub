@@ -1,5 +1,6 @@
 // Supabase Database Row Definitions
 export type UserRole =
+  | 'owner'
   | 'admin'
   | 'team'
   | 'commercial'

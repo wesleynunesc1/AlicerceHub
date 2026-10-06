@@ -146,13 +146,13 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.clientId || !formData.dueDate) {
-      showToast('Preencha os campos obrigatórios.', 'error');
+    if (!formData.name.trim()) {
+      showToast('O nome do projeto é obrigatório.', 'error');
       return;
     }
 
     const selectedClient = clients.find((c) => c.id === formData.clientId);
-    const resolvedClientName = clientName || (selectedClient ? selectedClient.companyName : 'Cliente');
+    const resolvedClientName = selectedClient ? selectedClient.companyName : (clientName || 'Cliente Geral');
 
     // Automação: Se selecionou template, instancia projeto + tarefas automáticas
     if (!editingProject && formData.templateId) {
@@ -767,13 +767,13 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Cliente Vinculado *</label>
+              <label className="form-label">Cliente Vinculado (Opcional)</label>
               <select
                 className="form-select"
                 value={formData.clientId}
                 onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                required
               >
+                <option value="">Nenhum (Projeto interno / Geral)</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.companyName}
@@ -783,7 +783,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Serviço *</label>
+              <label className="form-label">Serviço</label>
               <select
                 className="form-select"
                 value={formData.service}
@@ -846,13 +846,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Data Prevista de Entrega *</label>
+              <label className="form-label">Data Prevista de Entrega (Opcional)</label>
               <input
                 type="date"
                 className="form-input"
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                required
               />
             </div>
           </div>

@@ -206,9 +206,8 @@ export const TemplatesPage: React.FC = () => {
                     projectName: `${selectedTemplate.title} - ${selCl?.companyName || ''}`
                   });
                 }}
-                required
               >
-                <option value="">Selecione o cliente</option>
+                <option value="">Nenhum (Projeto interno)</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.companyName}
@@ -236,7 +235,6 @@ export const TemplatesPage: React.FC = () => {
                   className="form-input"
                   value={useFormData.responsible}
                   onChange={(e) => setUseFormData({ ...useFormData, responsible: e.target.value })}
-                  required
                 />
               </div>
 
@@ -247,7 +245,6 @@ export const TemplatesPage: React.FC = () => {
                   className="form-input"
                   value={useFormData.startDate}
                   onChange={(e) => setUseFormData({ ...useFormData, startDate: e.target.value })}
-                  required
                 />
               </div>
             </div>

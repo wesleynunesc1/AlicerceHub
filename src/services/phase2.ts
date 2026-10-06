@@ -158,7 +158,7 @@ class Phase2Service {
           responsible: d.responsible || 'Equipe Alicerce',
           priority: d.priority || 'Média',
           status: d.status || 'Pendente',
-          dueDate: d.due_date || new Date().toISOString().split('T')[0],
+          dueDate: d.due_date || '',
           createdAt: d.created_at || new Date().toISOString(),
           completedAt: d.completed_at,
           commentsCount: d.comments_count || 0,
@@ -176,22 +176,26 @@ class Phase2Service {
   async saveTask(task: Partial<Task>): Promise<Task> {
     const existing = this.getLocal<Task[]>(STORAGE_KEYS.TASKS, []);
     const id = task.id || `tsk-${Date.now()}`;
+    const prevTask = existing.find((t) => t.id === id);
+
     const newTask: Task = {
       id,
-      title: task.title || 'Nova Tarefa',
-      description: task.description || '',
-      projectId: task.projectId,
-      projectName: task.projectName || '',
-      clientId: task.clientId,
-      clientName: task.clientName || '',
-      responsible: task.responsible || 'Wesley Nunes',
-      priority: task.priority || 'Média',
-      status: task.status || 'Pendente',
-      dueDate: task.dueDate || new Date().toISOString().split('T')[0],
-      createdAt: task.createdAt || new Date().toISOString(),
-      completedAt: task.status === 'Concluída' ? new Date().toISOString() : undefined,
-      commentsCount: task.commentsCount || 0,
-      attachments: task.attachments || []
+      title: task.title !== undefined ? task.title : (prevTask?.title || 'Nova Tarefa'),
+      description: task.description !== undefined ? task.description : (prevTask?.description || ''),
+      projectId: task.projectId !== undefined ? task.projectId : prevTask?.projectId,
+      projectName: task.projectName !== undefined ? task.projectName : (prevTask?.projectName || ''),
+      clientId: task.clientId !== undefined ? task.clientId : prevTask?.clientId,
+      clientName: task.clientName !== undefined ? task.clientName : (prevTask?.clientName || ''),
+      responsible: task.responsible !== undefined ? task.responsible : (prevTask?.responsible || 'Wesley Nunes'),
+      priority: task.priority !== undefined ? task.priority : (prevTask?.priority || 'Média'),
+      status: task.status !== undefined ? task.status : (prevTask?.status || 'Pendente'),
+      dueDate: task.dueDate !== undefined ? task.dueDate : (prevTask?.dueDate || ''),
+      createdAt: task.createdAt !== undefined ? task.createdAt : (prevTask?.createdAt || new Date().toISOString()),
+      completedAt: task.completedAt !== undefined
+        ? (task.completedAt || undefined)
+        : (task.status ? (task.status === 'Concluída' ? new Date().toISOString() : undefined) : prevTask?.completedAt),
+      commentsCount: task.commentsCount !== undefined ? task.commentsCount : (prevTask?.commentsCount || 0),
+      attachments: task.attachments !== undefined ? task.attachments : (prevTask?.attachments || [])
     };
 
     const updated = existing.some((t) => t.id === id)
@@ -201,8 +205,7 @@ class Phase2Service {
     this.setLocal(STORAGE_KEYS.TASKS, updated);
 
     try {
-      await supabase.from('tasks').upsert({
-        id: newTask.id.startsWith('tsk-') ? undefined : newTask.id,
+      const payload: any = {
         title: newTask.title,
         description: newTask.description,
         project_id: newTask.projectId || null,
@@ -210,9 +213,15 @@ class Phase2Service {
         responsible: newTask.responsible,
         priority: newTask.priority,
         status: newTask.status,
-        due_date: newTask.dueDate,
+        due_date: newTask.dueDate || null,
         completed_at: newTask.completedAt || null
-      });
+      };
+
+      if (!newTask.id.startsWith('tsk-')) {
+        payload.id = newTask.id;
+      }
+
+      await supabase.from('tasks').upsert(payload);
     } catch (err) {
       console.warn('Failed to upsert task to Supabase:', err);
     }

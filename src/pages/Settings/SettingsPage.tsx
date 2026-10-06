@@ -79,6 +79,10 @@ export const SettingsPage: React.FC = () => {
             <strong style={{ color: 'var(--text-primary)' }}>Agência Alicerce</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--cream-border-subtle)' }}>
+            <span>Conta Proprietária</span>
+            <strong style={{ color: 'var(--green-deep)' }}>wesleynunespro@gmail.com (Owner)</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--cream-border-subtle)' }}>
             <span>Banco de Dados</span>
             <strong style={{ color: 'var(--text-primary)' }}>Supabase PostgreSQL (bgitssazeyfqbqajqojk)</strong>
           </div>

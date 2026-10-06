@@ -6,7 +6,6 @@ import { AppLayout } from './components/Layout/AppLayout';
 import { NavTab } from './components/Layout/Sidebar';
 
 import { LoginPage } from './pages/Login/LoginPage';
-import { RegisterPage } from './pages/Register/RegisterPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { ClientsPage } from './pages/Clients/ClientsPage';
 import { ProjectsPage } from './pages/Projects/ProjectsPage';
@@ -90,13 +89,8 @@ const parseQueryParams = () => {
 const MainApp: React.FC = () => {
   const { showToast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return db.getAuthSession().isAuthenticated;
-  });
-
-  const [authMode, setAuthMode] = useState<'login' | 'register'>(() => {
-    return window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro'
-      ? 'register'
-      : 'login';
+    const session = db.getAuthSession();
+    return Boolean(session.isAuthenticated && session.email?.toLowerCase() === 'wesleynunespro@gmail.com');
   });
 
   const [currentTab, setCurrentTab] = useState<NavTab>(() => {
@@ -111,9 +105,15 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     db.init();
 
+    // Redireciona qualquer tentativa de rota pública de cadastro para o login
+    if (window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro') {
+      window.history.replaceState(null, '', '/login');
+    }
+
     const handlePopState = () => {
-      const isCadastro = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro';
-      setAuthMode(isCadastro ? 'register' : 'login');
+      if (window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '') === 'cadastro') {
+        window.history.replaceState(null, '', '/login');
+      }
       setCurrentTab(pathToTab(window.location.pathname));
       const q = parseQueryParams();
       setNavParams(q.status || q.tipo ? { filter: q.status || q.tipo } : undefined);
@@ -121,19 +121,23 @@ const MainApp: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
 
     authService.getSession().then((session) => {
-      if (session?.user) {
+      if (session?.user && session.user.email?.toLowerCase() === 'wesleynunespro@gmail.com') {
         setIsAuthenticated(true);
-        db.setAuthSession({ isAuthenticated: true, email: session.user.email || '' });
+        db.setAuthSession({ isAuthenticated: true, email: session.user.email });
+      } else {
+        setIsAuthenticated(false);
+        db.setAuthSession({ isAuthenticated: false, email: '' });
       }
     });
 
     const { data: authListener } = authService.onAuthStateChange((session, profile) => {
-      if (session?.user) {
+      if (session?.user && session.user.email?.toLowerCase() === 'wesleynunespro@gmail.com') {
         setIsAuthenticated(true);
-        db.setAuthSession({ isAuthenticated: true, email: session.user.email || '' });
+        db.setAuthSession({ isAuthenticated: true, email: session.user.email });
         if (profile) db.saveUser(profile);
-      } else if (!db.getAuthSession().isAuthenticated) {
+      } else {
         setIsAuthenticated(false);
+        db.setAuthSession({ isAuthenticated: false, email: '' });
       }
     });
 
@@ -151,23 +155,6 @@ const MainApp: React.FC = () => {
       window.history.replaceState(null, '', '/dashboard');
     }
     showToast('Bem-vindo ao Alicerce OS!', 'success');
-  };
-
-  const handleRegisterSuccess = () => {
-    setIsAuthenticated(true);
-    window.history.replaceState(null, '', '/dashboard');
-    setCurrentTab('dashboard');
-    showToast('Conta criada com sucesso! Bem-vindo ao Alicerce OS.', 'success');
-  };
-
-  const handleNavigateToRegister = () => {
-    setAuthMode('register');
-    window.history.pushState(null, '', '/cadastro');
-  };
-
-  const handleNavigateToLogin = () => {
-    setAuthMode('login');
-    window.history.pushState(null, '', '/login');
   };
 
   const handleLogout = async () => {
@@ -195,18 +182,9 @@ const MainApp: React.FC = () => {
   };
 
   if (!isAuthenticated) {
-    if (authMode === 'register') {
-      return (
-        <RegisterPage
-          onRegisterSuccess={handleRegisterSuccess}
-          onNavigateToLogin={handleNavigateToLogin}
-        />
-      );
-    }
     return (
       <LoginPage
         onLoginSuccess={handleLoginSuccess}
-        onNavigateToRegister={handleNavigateToRegister}
       />
     );
   }

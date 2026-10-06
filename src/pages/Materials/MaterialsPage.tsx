@@ -111,8 +111,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
 
   const handleSaveMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.description) {
-      showToast('Preencha os campos obrigatórios.', 'error');
+    if (!formData.title.trim()) {
+      showToast('O título do material é obrigatório.', 'error');
       return;
     }
 
@@ -577,14 +577,13 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Descrição do Material *</label>
+            <label className="form-label">Descrição do Material (Opcional)</label>
             <textarea
               className="form-textarea"
               rows={3}
               placeholder="Explique o objetivo deste documento e orientações de uso para a equipe..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              required
             />
           </div>
 

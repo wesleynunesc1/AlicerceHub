@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { ArrowRight, Lock, Mail, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { db } from '../../services/db';
-import { authService } from '../../services/auth';
+import { authService, OWNER_EMAIL } from '../../services/auth';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
-  onNavigateToRegister?: () => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -22,8 +21,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail || !password) {
       setError('Por favor, preencha todos os campos.');
+      return;
+    }
+
+    // Regra estrita: Somente a conta do proprietário pode acessar
+    if (cleanEmail !== OWNER_EMAIL.toLowerCase()) {
+      setError('Esta conta não possui acesso ao Alicerce OS.');
       return;
     }
 
@@ -31,33 +38,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
 
     try {
       // 1. Tenta autenticar via Supabase Auth
-      const res = await authService.signIn(email, password);
+      const res = await authService.signIn(cleanEmail, password);
 
       if (res.success) {
-        db.setAuthSession({ isAuthenticated: true, email });
+        db.setAuthSession({ isAuthenticated: true, email: cleanEmail });
         if (res.profile) {
           db.saveUser(res.profile);
         }
         onLoginSuccess();
       } else {
-        // Fallback para credenciais de demonstração caso o usuário ainda não tenha rodado o SQL
-        if (email === 'admin@alicerce.com' && password === 'alicerce2025') {
-          db.setAuthSession({ isAuthenticated: true, email });
-          onLoginSuccess();
-        } else {
-          setError(res.error || 'Credenciais inválidas no Supabase Auth.');
-        }
+        setError(res.error || 'Credenciais inválidas no Supabase Auth.');
       }
     } catch (err: any) {
       setError(err?.message || 'Falha ao autenticar.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleFillDemo = () => {
-    setEmail('admin@alicerce.com');
-    setPassword('alicerce2025');
   };
 
   const handleForgotSubmit = (e: React.FormEvent) => {
@@ -75,7 +71,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
     <div className="login-screen-wrapper">
       {/* Left/Top Architectural Brand Area */}
       <div className="login-brand-panel">
-        {/* Discreet decorative lines */}
+        {/* Decorative lines */}
         <div className="login-decorative-grid" />
 
         <div className="login-brand-content">
@@ -144,6 +140,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
       <div className="login-form-panel">
         <div className="login-form-card">
           <div style={{ marginBottom: '28px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--cream-subtle)', borderRadius: 'var(--radius-full)', border: '1px solid var(--cream-border)', marginBottom: '14px' }}>
+              <ShieldCheck size={14} color="var(--green-primary)" />
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Acesso Restrito ao Proprietário
+              </span>
+            </div>
             <h2
               className="font-serif"
               style={{
@@ -157,7 +159,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
               Acesse sua conta
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.96rem', fontWeight: 450 }}>
-              Insira suas credenciais corporativas para entrar na central.
+              Insira as credenciais do proprietário para entrar na central.
             </p>
           </div>
 
@@ -182,7 +184,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
             {/* Email input */}
             <div className="form-group" style={{ marginBottom: '20px' }}>
               <label className="form-label" htmlFor="login-email">
-                E-mail corporativo
+                E-mail do Proprietário
               </label>
               <div style={{ position: 'relative' }}>
                 <Mail
@@ -195,7 +197,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
                   type="email"
                   className="form-input"
                   style={{ paddingLeft: '44px', fontSize: '16px' }}
-                  placeholder="seu.email@alicerce.com"
+                  placeholder="wesleynunespro@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -271,43 +273,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
               {!isLoading && <ArrowRight size={18} />}
             </button>
           </form>
-
-          {/* Registration link */}
-          <div
-            style={{
-              marginTop: '32px',
-              paddingTop: '24px',
-              borderTop: '1px solid var(--cream-border)',
-              textAlign: 'center'
-            }}
-          >
-            <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)' }}>
-              Não possui uma conta?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onNavigateToRegister) {
-                    onNavigateToRegister();
-                  } else {
-                    window.history.pushState({}, '', '/cadastro');
-                    window.dispatchEvent(new PopStateEvent('popstate'));
-                  }
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--green-primary)',
-                  fontWeight: 650,
-                  fontSize: '0.92rem',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  padding: 0
-                }}
-              >
-                Criar conta
-              </button>
-            </p>
-          </div>
         </div>
       </div>
 
@@ -334,15 +299,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate
               ) : (
                 <form onSubmit={handleForgotSubmit}>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '18px', lineHeight: 1.5 }}>
-                    Informe seu e-mail corporativo cadastrado na Alicerce. Enviaremos um link temporário para restauração de acesso.
+                    Informe o e-mail cadastrado na conta principal. Enviaremos um link temporário para restauração de acesso.
                   </p>
                   <div className="form-group">
-                    <label className="form-label">E-mail corporativo</label>
+                    <label className="form-label">E-mail</label>
                     <input
                       type="email"
                       className="form-input"
                       style={{ fontSize: '16px' }}
-                      placeholder="admin@alicerce.com"
+                      placeholder="wesleynunespro@gmail.com"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       required

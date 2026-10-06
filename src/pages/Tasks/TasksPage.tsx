@@ -81,6 +81,24 @@ export const TasksPage: React.FC<TasksPageProps> = ({
   const [createdCount, setCreatedCount] = useState(0);
   const [newChecklistInputs, setNewChecklistInputs] = useState<Record<string, string>>({});
 
+  // Estados de Drag and Drop para o Kanban
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
+
+  const formatDueDate = (dateStr?: string) => {
+    if (!dateStr) return 'Sem prazo';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? 'Sem prazo' : d.toLocaleDateString('pt-BR');
+    } catch {
+      return 'Sem prazo';
+    }
+  };
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -89,7 +107,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
     responsible: 'Wesley Nunes',
     priority: 'Média' as TaskPriority,
     status: 'Pendente' as TaskStatus,
-    dueDate: new Date().toISOString().split('T')[0]
+    dueDate: ''
   });
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -132,12 +150,12 @@ export const TasksPage: React.FC<TasksPageProps> = ({
     setFormData({
       title: '',
       description: '',
-      projectId: initialProjectId || projects[0]?.id || '',
-      clientId: initialClientId || clients[0]?.id || '',
+      projectId: initialProjectId || '',
+      clientId: initialClientId || '',
       responsible: 'Wesley Nunes',
       priority: 'Média',
       status: 'Pendente',
-      dueDate: new Date().toISOString().split('T')[0]
+      dueDate: ''
     });
     setIsModalOpen(true);
   };
@@ -234,11 +252,12 @@ export const TasksPage: React.FC<TasksPageProps> = ({
 
       // Registro de histórico conforme especificação
       if (createdTasks.length === 1) {
+        const prazoMsg = createdTasks[0].dueDate ? ` (Prazo: ${formatDueDate(createdTasks[0].dueDate)})` : '';
         await dashboardService.logActivity(
           'Tarefa criada via comando',
           'task',
           createdTasks[0].id,
-          `Tarefa "${createdTasks[0].title}" atribuída para ${createdTasks[0].responsible} (Prazo: ${new Date(createdTasks[0].dueDate).toLocaleDateString('pt-BR')}).`
+          `Tarefa "${createdTasks[0].title}" atribuída para ${createdTasks[0].responsible}${prazoMsg}.`
         );
       } else {
         await dashboardService.logActivity(
@@ -329,23 +348,25 @@ export const TasksPage: React.FC<TasksPageProps> = ({
 
     const saved = await phase2Service.saveTask({
       ...(editingTask ? { id: editingTask.id } : {}),
-      title: formData.title,
+      title: formData.title.trim(),
       description: formData.description,
       projectId: formData.projectId || undefined,
       projectName: selectedProj?.name,
       clientId: formData.clientId || undefined,
       clientName: selectedClient?.companyName,
-      responsible: formData.responsible,
-      priority: formData.priority,
-      status: formData.status,
-      dueDate: formData.dueDate
+      responsible: formData.responsible || 'Wesley Nunes',
+      priority: formData.priority || 'Média',
+      status: formData.status || 'Pendente',
+      dueDate: formData.dueDate || ''
     });
+
+    const prazoMsg = saved.dueDate ? ` (Prazo: ${formatDueDate(saved.dueDate)})` : '';
 
     await dashboardService.logActivity(
       editingTask ? 'Tarefa Atualizada' : 'Tarefa Criada',
       'task',
       saved.id,
-      `Tarefa "${saved.title}" atribuída para ${saved.responsible} (Prazo: ${new Date(saved.dueDate).toLocaleDateString('pt-BR')}).`
+      `Tarefa "${saved.title}" atribuída para ${saved.responsible}${prazoMsg}.`
     );
 
     showToast(editingTask ? 'Tarefa atualizada.' : 'Tarefa criada com sucesso.', 'success');
@@ -353,36 +374,70 @@ export const TasksPage: React.FC<TasksPageProps> = ({
     loadData();
   };
 
-  // Atualização rápida de status da tarefa com recálculo automático de progresso do projeto
-  const handleUpdateTaskStatus = async (task: Task, newStatus: TaskStatus) => {
-    await phase2Service.saveTask({
-      id: task.id,
+  // Mover tarefa entre etapas (Kanban Drag and Drop e ações explícitas) com Optimistic UI e Rollback
+  const handleMoveTask = async (taskId: string, newStatus: TaskStatus) => {
+    const targetTask = tasks.find((t) => t.id === taskId);
+    if (!targetTask || targetTask.status === newStatus) return;
+
+    const previousStatus = targetTask.status;
+    const isCompleted = newStatus === 'Concluída';
+    const completedAt = isCompleted ? new Date().toISOString() : undefined;
+
+    // 1. Optimistic UI: Atualiza o estado da interface imediatamente
+    const updatedTask: Task = {
+      ...targetTask,
       status: newStatus,
-      completedAt: newStatus === 'Concluída' ? new Date().toISOString() : undefined
-    });
+      completedAt
+    };
 
-    // Se a tarefa pertencer a um projeto, atualiza o progresso do projeto automaticamente
-    if (task.projectId) {
-      const projTasks = tasks.filter((t) => t.projectId === task.projectId);
-      const completedCount = projTasks.filter((t) =>
-        t.id === task.id ? newStatus === 'Concluída' : t.status === 'Concluída'
-      ).length;
-      const progress = Math.round((completedCount / (projTasks.length || 1)) * 100);
-      await projectsService.updateProject(task.projectId, { progress });
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+    if (viewingTask?.id === taskId) {
+      setViewingTask(updatedTask);
     }
 
-    await dashboardService.logActivity(
-      'Status da Tarefa Atualizado',
-      'task',
-      task.id,
-      `Tarefa "${task.title}" marcada como "${newStatus}".`
-    );
+    try {
+      // 2. Persistência real no Supabase / LocalStorage
+      await phase2Service.saveTask({
+        id: taskId,
+        status: newStatus,
+        completedAt: isCompleted ? completedAt : undefined
+      });
 
-    showToast(`Tarefa atualizada para "${newStatus}".`, 'info');
-    if (viewingTask?.id === task.id) {
-      setViewingTask({ ...viewingTask, status: newStatus });
+      // 3. Atualização automática de progresso do projeto se houver vínculo
+      if (targetTask.projectId) {
+        const projTasks = tasks
+          .map((t) => (t.id === taskId ? updatedTask : t))
+          .filter((t) => t.projectId === targetTask.projectId);
+        const completedCount = projTasks.filter((t) => t.status === 'Concluída').length;
+        const progress = Math.round((completedCount / (projTasks.length || 1)) * 100);
+        await projectsService.updateProject(targetTask.projectId, { progress });
+      }
+
+      // 4. Registro de log de atividade
+      await dashboardService.logActivity(
+        isCompleted ? 'Tarefa Concluída' : 'Tarefa Movida no Kanban',
+        'task',
+        taskId,
+        isCompleted
+          ? `Tarefa "${targetTask.title}" concluída.`
+          : `Tarefa "${targetTask.title}" movida de "${previousStatus}" para "${newStatus}".`
+      );
+
+      showToast(`Tarefa atualizada para "${newStatus}".`, 'info');
+    } catch (err) {
+      console.error('Erro ao mover tarefa:', err);
+      // Rollback se houver falha
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: previousStatus } : t)));
+      if (viewingTask?.id === taskId) {
+        setViewingTask(targetTask);
+      }
+      showToast('Não foi possível mover a tarefa. Tente novamente.', 'error');
     }
-    loadData();
+  };
+
+  // Compatibilidade com ações existentes que passam o objeto task
+  const handleUpdateTaskStatus = async (task: Task, newStatus: TaskStatus) => {
+    await handleMoveTask(task.id, newStatus);
   };
 
   const handleDelete = async (id: string) => {
@@ -555,19 +610,46 @@ export const TasksPage: React.FC<TasksPageProps> = ({
         >
           {kanbanColumns.map((column) => {
             const columnTasks = filteredTasks.filter((t) => t.status === column);
+            const isColumnTarget = dragOverColumn === column;
 
             return (
               <div
                 key={column}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverColumn !== column) {
+                    setDragOverColumn(column);
+                  }
+                }}
+                onDragLeave={(e) => {
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                  if (dragOverColumn === column) {
+                    setDragOverColumn(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const droppedId = e.dataTransfer.getData('text/plain') || draggedTaskId;
+                  if (droppedId) {
+                    handleMoveTask(droppedId, column);
+                  }
+                  setDraggedTaskId(null);
+                  setDragOverColumn(null);
+                }}
                 style={{
-                  background: 'var(--cream-subtle)',
+                  background: isColumnTarget ? 'var(--cream-light)' : 'var(--cream-subtle)',
                   borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--cream-border-subtle)',
+                  border: isColumnTarget
+                    ? '2px dashed var(--green-primary)'
+                    : '1px solid var(--cream-border-subtle)',
+                  boxShadow: isColumnTarget ? '0 0 16px rgba(45, 90, 39, 0.15)' : 'none',
                   padding: '16px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px',
-                  minHeight: '480px'
+                  minHeight: '480px',
+                  transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease'
                 }}
               >
                 {/* Header da Coluna */}
@@ -592,20 +674,35 @@ export const TasksPage: React.FC<TasksPageProps> = ({
                 {/* Cards da Coluna */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {columnTasks.map((task) => {
-                    const isLate = task.status !== 'Concluída' && task.dueDate < todayStr;
+                    const isLate = Boolean(task.dueDate && task.status !== 'Concluída' && task.dueDate < todayStr);
+                    const isBeingDragged = draggedTaskId === task.id;
 
                     return (
                       <div
                         key={task.id}
                         className="card"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', task.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDraggedTaskId(task.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedTaskId(null);
+                          setDragOverColumn(null);
+                        }}
                         onClick={() => setViewingTask(task)}
                         style={{
                           padding: '16px',
-                          cursor: 'pointer',
+                          cursor: 'grab',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '10px',
-                          borderLeft: isLate ? '3px solid #DC2626' : undefined
+                          borderLeft: isLate ? '3px solid #DC2626' : undefined,
+                          opacity: isBeingDragged ? 0.45 : 1,
+                          transform: isBeingDragged ? 'scale(0.98)' : 'none',
+                          transition: 'transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease',
+                          userSelect: 'none'
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -628,10 +725,46 @@ export const TasksPage: React.FC<TasksPageProps> = ({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isLate ? '#DC2626' : 'var(--text-muted)' }}>
                             <Clock size={12} />
                             <span style={{ fontWeight: isLate ? 700 : 500 }}>
-                              {new Date(task.dueDate).toLocaleDateString('pt-BR')}
+                              {formatDueDate(task.dueDate)}
                             </span>
                           </div>
                           <span style={{ color: 'var(--text-muted)' }}>{task.responsible}</span>
+                        </div>
+
+                        {/* Fallback acessível e mobile para mover status sem exigir arrastar */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginTop: '4px',
+                            paddingTop: '6px',
+                            borderTop: '1px solid var(--cream-border-subtle)',
+                            fontSize: '0.74rem'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span style={{ color: 'var(--text-muted)' }}>Mover para:</span>
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleMoveTask(task.id, e.target.value as TaskStatus)}
+                            style={{
+                              fontSize: '0.74rem',
+                              padding: '2px 6px',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid var(--cream-border)',
+                              background: '#FFFFFF',
+                              color: 'var(--text-secondary)',
+                              cursor: 'pointer',
+                              fontWeight: 600
+                            }}
+                            aria-label={`Mover status da tarefa ${task.title}`}
+                          >
+                            <option value="Pendente">Pendente</option>
+                            <option value="Em andamento">Em andamento</option>
+                            <option value="Aguardando">Aguardando</option>
+                            <option value="Concluída">Concluída</option>
+                          </select>
                         </div>
                       </div>
                     );
@@ -668,7 +801,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
               </thead>
               <tbody>
                 {filteredTasks.map((task) => {
-                  const isLate = task.status !== 'Concluída' && task.dueDate < todayStr;
+                  const isLate = Boolean(task.dueDate && task.status !== 'Concluída' && task.dueDate < todayStr);
 
                   return (
                     <tr key={task.id} onClick={() => setViewingTask(task)} style={{ cursor: 'pointer' }}>
@@ -706,7 +839,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
                       <td>{getPriorityBadge(task.priority)}</td>
                       <td>
                         <span style={{ fontSize: '0.86rem', fontWeight: isLate ? 700 : 500, color: isLate ? '#DC2626' : 'var(--text-primary)' }}>
-                          {new Date(task.dueDate).toLocaleDateString('pt-BR')}
+                          {formatDueDate(task.dueDate)}
                         </span>
                         {isLate && (
                           <span style={{ display: 'block', fontSize: '0.72rem', color: '#DC2626', fontWeight: 650 }}>
@@ -714,10 +847,26 @@ export const TasksPage: React.FC<TasksPageProps> = ({
                           </span>
                         )}
                       </td>
-                      <td>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 650, padding: '3px 8px', borderRadius: '4px', background: 'var(--cream-subtle)' }}>
-                          {task.status}
-                        </span>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={task.status}
+                          onChange={(e) => handleMoveTask(task.id, e.target.value as TaskStatus)}
+                          style={{
+                            fontSize: '0.78rem',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--cream-border)',
+                            background: 'var(--cream-subtle)',
+                            fontWeight: 650,
+                            color: 'var(--text-primary)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="Pendente">Pendente</option>
+                          <option value="Em andamento">Em andamento</option>
+                          <option value="Aguardando">Aguardando</option>
+                          <option value="Concluída">Concluída</option>
+                        </select>
                       </td>
                       <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'inline-flex', gap: '4px' }}>
@@ -753,7 +902,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
           isOpen={!!viewingTask}
           onClose={() => setViewingTask(null)}
           title={viewingTask.title}
-          subtitle={`Responsável: ${viewingTask.responsible} • Prazo: ${new Date(viewingTask.dueDate).toLocaleDateString('pt-BR')}`}
+          subtitle={`Responsável: ${viewingTask.responsible} • Prazo: ${formatDueDate(viewingTask.dueDate)}`}
           maxWidth="640px"
           footer={
             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
@@ -827,8 +976,8 @@ export const TasksPage: React.FC<TasksPageProps> = ({
 
               <div className="card" style={{ padding: '12px' }}>
                 <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Prazo de Entrega</span>
-                <div style={{ marginTop: '4px', fontSize: '0.9rem', fontWeight: 600, color: viewingTask.dueDate < todayStr && viewingTask.status !== 'Concluída' ? '#DC2626' : 'var(--text-primary)' }}>
-                  {new Date(viewingTask.dueDate).toLocaleDateString('pt-BR')}
+                <div style={{ marginTop: '4px', fontSize: '0.9rem', fontWeight: 600, color: viewingTask.dueDate && viewingTask.dueDate < todayStr && viewingTask.status !== 'Concluída' ? '#DC2626' : 'var(--text-primary)' }}>
+                  {formatDueDate(viewingTask.dueDate)}
                 </div>
               </div>
             </div>
@@ -1024,13 +1173,12 @@ export const TasksPage: React.FC<TasksPageProps> = ({
               </div>
 
               <div>
-                <label className="form-label">Prazo de Entrega *</label>
+                <label className="form-label">Prazo de Entrega (Opcional)</label>
                 <input
                   type="date"
                   className="form-input"
                   value={formData.dueDate}
                   onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  required
                 />
               </div>
             </div>
@@ -1401,14 +1549,13 @@ export const TasksPage: React.FC<TasksPageProps> = ({
 
                         <div>
                           <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
-                            Prazo *
+                            Prazo (Opcional)
                           </label>
                           <input
                             type="date"
                             className="form-input"
                             value={draft.dueDate}
                             onChange={(e) => handleUpdateDraft(idx, { dueDate: e.target.value })}
-                            required
                           />
                         </div>
                       </div>
