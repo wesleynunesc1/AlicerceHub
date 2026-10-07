@@ -96,6 +96,7 @@ export interface Task {
   completedAt?: string;
   commentsCount?: number;
   attachments?: string[];
+  coverImage?: string;
 }
 
 /* ==============================================================================

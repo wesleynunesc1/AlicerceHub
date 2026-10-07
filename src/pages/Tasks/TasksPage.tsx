@@ -21,7 +21,9 @@ import {
   Trash2,
   ExternalLink,
   ArrowLeft,
-  X
+  X,
+  ImagePlus,
+  RefreshCw
 } from 'lucide-react';
 import { Task, TaskPriority, TaskStatus, Project, Client } from '../../types';
 import { phase2Service } from '../../services/phase2';
@@ -31,6 +33,7 @@ import { dashboardService } from '../../services/dashboard';
 import { parseTaskCommand, ParsedTaskDraft } from '../../services/taskCommandParser';
 import { Modal } from '../../components/Common/Modal';
 import { useToast } from '../../components/Common/Toast';
+import { uploadTaskCover } from '../../services/taskCovers';
 
 interface TasksPageProps {
   initialFilter?: string;
@@ -85,6 +88,11 @@ export const TasksPage: React.FC<TasksPageProps> = ({
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
 
+  // Estados da imagem de capa
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isCoverDragOver, setIsCoverDragOver] = useState(false);
+  const coverInputRef = React.useRef<HTMLInputElement>(null);
+
   const formatDueDate = (dateStr?: string) => {
     if (!dateStr) return 'Sem prazo';
     try {
@@ -107,7 +115,8 @@ export const TasksPage: React.FC<TasksPageProps> = ({
     responsible: 'Wesley Nunes',
     priority: 'Média' as TaskPriority,
     status: 'Pendente' as TaskStatus,
-    dueDate: ''
+    dueDate: '',
+    coverImage: ''
   });
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -155,7 +164,8 @@ export const TasksPage: React.FC<TasksPageProps> = ({
       responsible: 'Wesley Nunes',
       priority: 'Média',
       status: 'Pendente',
-      dueDate: ''
+      dueDate: '',
+      coverImage: ''
     });
     setIsModalOpen(true);
   };
@@ -171,9 +181,25 @@ export const TasksPage: React.FC<TasksPageProps> = ({
       responsible: task.responsible,
       priority: task.priority,
       status: task.status,
-      dueDate: task.dueDate
+      dueDate: task.dueDate,
+      coverImage: task.coverImage || ''
     });
     setIsModalOpen(true);
+  };
+
+  // Upload da imagem de capa (clique, arrastar e soltar ou colar)
+  const handleCoverFile = async (file?: File | null) => {
+    if (!file) return;
+    setIsUploadingCover(true);
+    try {
+      const url = await uploadTaskCover(file);
+      setFormData((prev) => ({ ...prev, coverImage: url }));
+    } catch (err: any) {
+      showToast(err?.message || 'Não foi possível anexar a imagem.', 'error');
+    } finally {
+      setIsUploadingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
   };
 
   // Interpretador de comandos em linguagem natural
@@ -357,7 +383,8 @@ export const TasksPage: React.FC<TasksPageProps> = ({
       responsible: formData.responsible || 'Wesley Nunes',
       priority: formData.priority || 'Média',
       status: formData.status || 'Pendente',
-      dueDate: formData.dueDate || ''
+      dueDate: formData.dueDate || '',
+      coverImage: formData.coverImage || ''
     });
 
     const prazoMsg = saved.dueDate ? ` (Prazo: ${formatDueDate(saved.dueDate)})` : '';
@@ -732,9 +759,22 @@ export const TasksPage: React.FC<TasksPageProps> = ({
                           opacity: isBeingDragged ? 0.45 : 1,
                           transform: isBeingDragged ? 'scale(0.98)' : 'none',
                           transition: 'transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease',
-                          userSelect: 'none'
+                          userSelect: 'none',
+                          overflow: 'hidden'
                         }}
                       >
+                        {task.coverImage && (
+                          <div
+                            style={{
+                              margin: '-16px -16px 0',
+                              height: '132px',
+                              background: `var(--cream-subtle) url("${task.coverImage}") center / cover no-repeat`,
+                              borderBottom: '1px solid var(--cream-border-subtle)'
+                            }}
+                            role="img"
+                            aria-label={`Capa da tarefa ${task.title}`}
+                          />
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <span style={{ fontWeight: 650, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>
                             {task.title}
@@ -1006,6 +1046,20 @@ export const TasksPage: React.FC<TasksPageProps> = ({
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {viewingTask.coverImage && (
+              <img
+                src={viewingTask.coverImage}
+                alt={`Capa da tarefa ${viewingTask.title}`}
+                style={{
+                  width: '100%',
+                  maxHeight: '280px',
+                  objectFit: 'cover',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--cream-border-subtle)',
+                  display: 'block'
+                }}
+              />
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
               <div className="card" style={{ padding: '12px' }}>
                 <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Status</span>
@@ -1166,6 +1220,115 @@ export const TasksPage: React.FC<TasksPageProps> = ({
               />
             </div>
 
+            {/* Imagem de capa */}
+            <div>
+              <label className="form-label">Imagem de Capa (Opcional)</label>
+              <input
+                ref={coverInputRef}
+                id="task-cover-input"
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => handleCoverFile(e.target.files?.[0])}
+              />
+
+              {formData.coverImage ? (
+                <div
+                  style={{
+                    position: 'relative',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                    border: '1px solid var(--cream-border)'
+                  }}
+                >
+                  <img
+                    src={formData.coverImage}
+                    alt="Pré-visualização da capa"
+                    style={{ width: '100%', height: '170px', objectFit: 'cover', display: 'block', opacity: isUploadingCover ? 0.5 : 1 }}
+                  />
+                  <div style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      id="task-cover-replace"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={isUploadingCover}
+                      style={{ background: 'rgba(255,255,255,0.92)', gap: '4px' }}
+                    >
+                      <RefreshCw size={13} /> Trocar
+                    </button>
+                    <button
+                      type="button"
+                      id="task-cover-remove"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setFormData((prev) => ({ ...prev, coverImage: '' }))}
+                      disabled={isUploadingCover}
+                      style={{ background: 'rgba(255,255,255,0.92)', color: '#DC2626', gap: '4px' }}
+                    >
+                      <Trash2 size={13} /> Remover
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  id="task-cover-dropzone"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !isUploadingCover && coverInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      coverInputRef.current?.click();
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith('image/'));
+                    if (file) handleCoverFile(file);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsCoverDragOver(true);
+                  }}
+                  onDragLeave={() => setIsCoverDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsCoverDragOver(false);
+                    handleCoverFile(e.dataTransfer.files?.[0]);
+                  }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '22px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: `2px dashed ${isCoverDragOver ? 'var(--green-primary)' : 'var(--cream-border)'}`,
+                    background: isCoverDragOver ? 'var(--cream-light)' : 'var(--cream-subtle)',
+                    color: 'var(--text-secondary)',
+                    cursor: isUploadingCover ? 'wait' : 'pointer',
+                    transition: 'background 0.18s ease, border-color 0.18s ease',
+                    textAlign: 'center'
+                  }}
+                >
+                  {isUploadingCover ? (
+                    <>
+                      <span className="spinner-sm" />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Enviando imagem...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImagePlus size={22} color="var(--sand-gold-dark)" />
+                      <span style={{ fontSize: '0.86rem', fontWeight: 650, color: 'var(--green-deep)' }}>
+                        Clique, arraste ou cole uma imagem
+                      </span>
+                      <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>JPG, PNG ou WEBP • até 10MB</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
               <div>
                 <label className="form-label">Cliente</label>
@@ -1247,7 +1410,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
               <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
                 Cancelar
               </button>
-              <button type="submit" className="btn btn-primary">
+              <button type="submit" className="btn btn-primary" disabled={isUploadingCover}>
                 {editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
               </button>
             </div>

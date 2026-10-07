@@ -147,6 +147,8 @@ class Phase2Service {
         .order('created_at', { ascending: false });
 
       if (!error && data && data.length > 0) {
+        const localCache = this.getLocal<Task[]>(STORAGE_KEYS.TASKS, []);
+        const localCovers = new Map(localCache.filter((t) => t.coverImage).map((t) => [t.id, t.coverImage]));
         const mapped: Task[] = data.map((d: any) => ({
           id: d.id,
           title: d.title,
@@ -162,7 +164,9 @@ class Phase2Service {
           createdAt: d.created_at || new Date().toISOString(),
           completedAt: d.completed_at,
           commentsCount: d.comments_count || 0,
-          attachments: d.attachments || []
+          attachments: d.attachments || [],
+          // Usa a coluna cover_image; se ainda não existir no banco, mantém a capa salva localmente
+          coverImage: d.cover_image !== undefined ? (d.cover_image || undefined) : localCovers.get(d.id)
         }));
         this.setLocal(STORAGE_KEYS.TASKS, mapped);
         return mapped;
@@ -195,7 +199,8 @@ class Phase2Service {
         ? (task.completedAt || undefined)
         : (task.status ? (task.status === 'Concluída' ? new Date().toISOString() : undefined) : prevTask?.completedAt),
       commentsCount: task.commentsCount !== undefined ? task.commentsCount : (prevTask?.commentsCount || 0),
-      attachments: task.attachments !== undefined ? task.attachments : (prevTask?.attachments || [])
+      attachments: task.attachments !== undefined ? task.attachments : (prevTask?.attachments || []),
+      coverImage: task.coverImage !== undefined ? (task.coverImage || undefined) : prevTask?.coverImage
     };
 
     const updated = existing.some((t) => t.id === id)
@@ -221,7 +226,17 @@ class Phase2Service {
         payload.id = newTask.id;
       }
 
-      await supabase.from('tasks').upsert(payload);
+      if (task.coverImage !== undefined) {
+        payload.cover_image = newTask.coverImage || null;
+      }
+
+      const { error } = await supabase.from('tasks').upsert(payload);
+      if (error && payload.cover_image !== undefined && /cover_image/i.test(error.message || '')) {
+        // Coluna cover_image ainda não criada no Supabase: salva o restante e mantém a capa no cache local
+        console.warn('Coluna cover_image ausente em tasks. Execute alicerce_task_cover_update.sql.');
+        delete payload.cover_image;
+        await supabase.from('tasks').upsert(payload);
+      }
     } catch (err) {
       console.warn('Failed to upsert task to Supabase:', err);
     }
